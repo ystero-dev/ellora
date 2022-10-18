@@ -1,0 +1,3 @@
+# Introduction
+
+The goal of the project is to be a toolkit for Stream Control Transport Protocol (SCTP) implemented in Rust. Initial focus is on implementation of the Sockets Extension API as defined in [RFC 6458](https://www.rfc-editor.org/rfc/rfc6458.txt) that should work with any `async` toolkit in Rust. In future additional support will be added. In particular we are not wrapping the [`lksctp`](https://lksctp.sourceforge.net/), but instead provide all the APIs consistent with [`nix::sys::socket`](https://docs.rs/nix/latest/nix/sys/socket/index.html). Eventually it should be possible to have `SCTP` as a first class citizen in the Rust's `async` ecosystem. Initial goal is to support Linux as the platform.
