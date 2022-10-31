@@ -5,12 +5,13 @@
 trait __InternalSCTP {}
 
 /// Flags for `sctp_bindx`.
+#[derive(Debug, Clone)]
 pub enum BindxFlags {
     /// Add the addresses passed (corresponding to `SCTP_BINDX_ADD_ADDR`)
-    Add = 0x01,
+    Add,
 
     /// Remove the addresses passed (corresponding to `SCTP_BINDX_REM_ADDR`)
-    Remve = 0x02,
+    Remove,
 }
 
 /// SocketToAssociation: One-to-Many or One-to-One style Socket
@@ -34,3 +35,7 @@ pub use listener::SctpListener;
 
 #[doc(inline)]
 pub use connected_socket::SctpConnectedSocket;
+
+mod internal;
+
+mod consts;

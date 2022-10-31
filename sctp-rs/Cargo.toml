@@ -13,3 +13,4 @@ license-file = "LICENSE"
 
 [dependencies]
 os_socketaddr = { version = "0.2" }
+libc = { version = "0.2" }
