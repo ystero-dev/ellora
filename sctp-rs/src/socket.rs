@@ -3,7 +3,7 @@
 use std::net::SocketAddr;
 use std::os::unix::io::RawFd;
 
-use crate::{BindxFlags, SocketToAssociation};
+use crate::{BindxFlags, SctpListener, SocketToAssociation};
 
 #[allow(unused)]
 use super::internal::*;
@@ -40,8 +40,10 @@ impl SctpSocket {
     }
 
     /// Listen on a given socket
-    pub fn listen(self, _backlog: u32) -> std::io::Result<crate::SctpListener> {
-        unimplemented!();
+    pub fn listen(self, backlog: i32) -> std::io::Result<SctpListener> {
+        sctp_listen_internal(self.inner, backlog)?;
+
+        Ok(SctpListener::from_raw_fd(self.inner))
     }
 
     /// Accept on a given socket (valid only for `OneToOne` type sockets

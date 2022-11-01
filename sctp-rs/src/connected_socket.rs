@@ -26,6 +26,18 @@ impl SctpConnectedSocket {
         _addrs: &[SocketAddr],
         _flags: crate::BindxFlags,
     ) -> std::io::Result<()> {
-        unimplemented!();
+        Err(std::io::Error::from_raw_os_error(95))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn bindx_not_supported() {
+        let connected = crate::SctpConnectedSocket;
+        let bindaddr = "127.0.0.1:8080".parse().unwrap();
+        let result = connected.sctp_bindx(&[bindaddr], crate::BindxFlags::Add);
+        assert!(result.is_err(), "{:#?}", result.ok().unwrap());
     }
 }

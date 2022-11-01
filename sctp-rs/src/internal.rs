@@ -74,3 +74,15 @@ pub(crate) fn sctp_socket_internal(
         }
     }
 }
+
+pub(crate) fn sctp_listen_internal(fd: RawFd, backlog: i32) -> std::io::Result<()> {
+    unsafe {
+        let result = libc::listen(fd, backlog);
+
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+}
