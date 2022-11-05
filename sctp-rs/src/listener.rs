@@ -3,8 +3,9 @@
 use std::net::SocketAddr;
 use std::os::unix::io::RawFd;
 
-use crate::internal::sctp_bindx_internal;
-use crate::BindxFlags;
+#[allow(unused)]
+use crate::internal::*;
+use crate::{types::SctpAssociationId, BindxFlags, SctpConnectedSocket};
 
 /// An `SctpSocket` that is bound to a local address and is 'listen'ing for incoming connections
 pub struct SctpListener {
@@ -41,6 +42,16 @@ impl SctpListener {
         sctp_bindx_internal(self.inner, addrs, flags)
     }
 
+    /// Section 9.2 RFC 6458
+    pub fn sctp_peeloff(
+        &self,
+        assoc_id: SctpAssociationId,
+    ) -> std::io::Result<SctpConnectedSocket> {
+        let _fd = sctp_peeloff_internal(self.inner, assoc_id)?;
+        // TODO : Actually create an `SctpConnectedSocket` from the returned `fd`.
+        Ok(SctpConnectedSocket)
+    }
+
     // functions not part of public APIs
     pub(crate) fn from_raw_fd(fd: RawFd) -> Self {
         Self { inner: fd }
@@ -67,5 +78,35 @@ mod tests {
         let bindaddr = "127.0.0.53:8080".parse().unwrap();
         let result = listener.sctp_bindx(&[bindaddr], BindxFlags::Add);
         assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+    }
+
+    #[test]
+    fn listening_socket_no_connect_peeloff_failure() {
+        let sctp_socket = crate::SctpSocket::new_v4(SocketToAssociation::OneToMany);
+
+        let bindaddr: SocketAddr = "127.0.0.1:0".parse().unwrap();
+
+        let result = sctp_socket.bind(bindaddr);
+        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+
+        let listener = sctp_socket.listen(10);
+        assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
+
+        let listener = listener.unwrap();
+        let result = listener.sctp_peeloff(42);
+        assert!(result.is_err(), "{:#?}", result.ok().unwrap());
+    }
+
+    #[ignore]
+    #[test]
+    fn listening_socket_one2one_connected_peeloff_failure() {
+        assert!(false);
+    }
+
+    #[ignore]
+    #[test]
+    fn listening_socket_one2many_connected_peeloff_success() {
+        // TODO Actual test implementation.
+        assert!(false);
     }
 }

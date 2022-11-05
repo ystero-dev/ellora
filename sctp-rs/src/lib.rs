@@ -39,3 +39,5 @@ pub use connected_socket::SctpConnectedSocket;
 mod internal;
 
 mod consts;
+
+mod types;

@@ -4,11 +4,11 @@
 //! `libc` and internal `libc` structs and function calls.
 
 use std::net::SocketAddr;
-use std::os::unix::io::RawFd;
+use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
-use crate::BindxFlags;
+use crate::{types::SctpAssociationId, BindxFlags};
 
 #[allow(unused)]
 use super::consts::*;
@@ -55,6 +55,37 @@ pub(crate) fn sctp_bindx_internal(
             Err(std::io::Error::last_os_error())
         } else {
             Ok(())
+        }
+    }
+}
+
+//
+pub(crate) fn sctp_peeloff_internal(
+    fd: RawFd,
+    assoc_id: SctpAssociationId,
+) -> std::io::Result<RawFd> {
+    use crate::types::SctpPeeloffArg;
+
+    let mut peeloff_arg = SctpPeeloffArg::from_assoc_id(assoc_id);
+    let mut peeloff_size: libc::socklen_t =
+        std::mem::size_of::<SctpPeeloffArg>() as libc::socklen_t;
+
+    // Safety Pointer to `peeloff_arg` and `peeloff_size` is valid as the variable is still in the
+    // scope
+    unsafe {
+        let peeloff_arg_ptr = std::ptr::addr_of_mut!(peeloff_arg);
+        let peeloff_size_ptr = std::ptr::addr_of_mut!(peeloff_size);
+        let result = libc::getsockopt(
+            fd,
+            SOL_SCTP,
+            SCTP_SOCKOPT_PEELOFF,
+            peeloff_arg_ptr as *mut _ as *mut libc::c_void,
+            peeloff_size_ptr as *mut _ as *mut libc::socklen_t,
+        );
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(peeloff_arg.sd.as_raw_fd())
         }
     }
 }

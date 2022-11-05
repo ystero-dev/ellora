@@ -3,6 +3,7 @@
 use std::net::SocketAddr;
 
 /// A `ConnectedSctpSocket`
+#[derive(Debug)]
 pub struct SctpConnectedSocket;
 
 impl super::__InternalSCTP for SctpConnectedSocket {}
