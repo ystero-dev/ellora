@@ -3,12 +3,16 @@
 //! Nothing in this module should be public API as this module contains `unsafe` code that uses
 //! `libc` and internal `libc` structs and function calls.
 
+use std::convert::TryInto;
 use std::net::SocketAddr;
 use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
-use crate::{types::SctpAssociationId, BindxFlags};
+use crate::{
+    types::{SctpAssociationId, SctpGetAddrs},
+    BindxFlags,
+};
 
 #[allow(unused)]
 use super::consts::*;
@@ -114,6 +118,87 @@ pub(crate) fn sctp_listen_internal(fd: RawFd, backlog: i32) -> std::io::Result<(
             Err(std::io::Error::last_os_error())
         } else {
             Ok(())
+        }
+    }
+}
+
+pub(crate) fn sctp_getpaddrs_internal(
+    fd: RawFd,
+    assoc_id: SctpAssociationId,
+) -> std::io::Result<Vec<SocketAddr>> {
+    sctp_getaddrs_internal(fd, SCTP_GET_PEER_ADDRS, assoc_id)
+}
+
+pub(crate) fn sctp_getladdrs_internal(
+    fd: RawFd,
+    assoc_id: SctpAssociationId,
+) -> std::io::Result<Vec<SocketAddr>> {
+    sctp_getaddrs_internal(fd, SCTP_GET_LOCAL_ADDRS, assoc_id)
+}
+
+fn sctp_getaddrs_internal(
+    fd: RawFd,
+    flags: libc::c_int,
+    assoc_id: SctpAssociationId,
+) -> std::io::Result<Vec<SocketAddr>> {
+    let capacity = 4096 as usize;
+    let mut addrs_buff = Vec::<u8>::with_capacity(capacity);
+    let mut getaddrs_size: libc::socklen_t = capacity as libc::socklen_t;
+    // Safety: `addrs_buff` has a reserved capacity of 4K bytes which should normally be sufficient
+    // for most of the calls to get local or peer addresses. Even if it is not sufficient, the call
+    // to `getsockopt` would return an error, thus the memory won't be overwritten.
+    unsafe {
+        let mut getaddrs_ptr = addrs_buff.as_mut_ptr() as *mut SctpGetAddrs;
+        (*getaddrs_ptr).assoc_id = assoc_id;
+        let getaddrs_size_ptr = std::ptr::addr_of_mut!(getaddrs_size);
+        let result = libc::getsockopt(
+            fd,
+            SOL_SCTP,
+            flags,
+            getaddrs_ptr as *mut _ as *mut libc::c_void,
+            getaddrs_size_ptr as *mut _ as *mut libc::socklen_t,
+        );
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            let mut peeraddrs = vec![];
+
+            // The call succeeded, we need to do a lot of ugly pointer arithmetic, first we get the
+            // number of addresses of the peer `addr_count` written to by the call to `getsockopt`.
+            let addr_count = (*getaddrs_ptr).addr_count;
+            let mut sockaddr_ptr = (*getaddrs_ptr).addrs;
+            for _ in 0..addr_count {
+                // Now for each of the 'addresses', we try to get the family and then interprete
+                // each of the addresses accordingly and update the pointer.
+                let sa_family = (*(sockaddr_ptr as *const libc::sockaddr)).sa_family;
+                if sa_family as i32 == libc::AF_INET {
+                    let os_socketaddr = OsSocketAddr::from_raw_parts(
+                        sockaddr_ptr,
+                        std::mem::size_of::<libc::sockaddr_in>().try_into().unwrap(),
+                    );
+                    let socketaddr = os_socketaddr.into_addr().unwrap();
+                    peeraddrs.push(socketaddr);
+                    sockaddr_ptr = sockaddr_ptr
+                        .offset(std::mem::size_of::<libc::sockaddr_in>().try_into().unwrap());
+                } else if sa_family as i32 == libc::AF_INET6 {
+                    let os_socketaddr = OsSocketAddr::from_raw_parts(
+                        sockaddr_ptr,
+                        std::mem::size_of::<libc::sockaddr_in6>()
+                            .try_into()
+                            .unwrap(),
+                    );
+                    let socketaddr = os_socketaddr.into_addr().unwrap();
+                    peeraddrs.push(socketaddr);
+                    sockaddr_ptr = sockaddr_ptr.offset(
+                        std::mem::size_of::<libc::sockaddr_in6>()
+                            .try_into()
+                            .unwrap(),
+                    );
+                } else {
+                    return Err(std::io::Error::from_raw_os_error(22));
+                }
+            }
+            Ok(peeraddrs)
         }
     }
 }

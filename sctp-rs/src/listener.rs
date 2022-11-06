@@ -1,7 +1,7 @@
 //! Listening SCTP Socket
 
 use std::net::SocketAddr;
-use std::os::unix::io::RawFd;
+use std::os::unix::io::{AsRawFd, RawFd};
 
 #[allow(unused)]
 use crate::internal::*;
@@ -47,9 +47,23 @@ impl SctpListener {
         &self,
         assoc_id: SctpAssociationId,
     ) -> std::io::Result<SctpConnectedSocket> {
-        let _fd = sctp_peeloff_internal(self.inner, assoc_id)?;
+        let fd = sctp_peeloff_internal(self.inner, assoc_id)?;
         // TODO : Actually create an `SctpConnectedSocket` from the returned `fd`.
-        Ok(SctpConnectedSocket)
+        Ok(SctpConnectedSocket::from_rawfd(fd.as_raw_fd()))
+    }
+
+    /// Section 9.3 RFC 6458
+    ///
+    /// Get's the Peer Addresses for the association.
+    pub fn sctp_getpaddrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
+        sctp_getpaddrs_internal(self.inner, assoc_id)
+    }
+
+    /// Section 9.5 RFC 6458
+    ///
+    /// Get's the Local Addresses for the association.
+    pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
+        sctp_getladdrs_internal(self.inner, assoc_id)
     }
 
     // functions not part of public APIs
