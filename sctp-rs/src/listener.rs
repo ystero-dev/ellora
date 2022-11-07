@@ -7,12 +7,15 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use crate::internal::*;
 use crate::{types::SctpAssociationId, BindxFlags, SctpConnectedSocket};
 
-/// An `SctpSocket` that is bound to a local address and is 'listen'ing for incoming connections
+/// A structure representing a socket that is listening for incoming SCTP Connections.
+///
+/// This structure is created by an [`crate::SctpSocket`] when it is bound to local address(es)
+/// and is waiting for incoming connections by calling the `listen` on the socket. The original
+/// [`crate::SctpSocket`] is consumed when this structure is created. See
+/// [`crate::SctpSocket::listen`] for more details.
 pub struct SctpListener {
     inner: RawFd,
 }
-
-impl super::__InternalSCTP for SctpListener {}
 
 impl SctpListener {
     /// Accept on a given socket (valid only for `OneToOne` type sockets
@@ -35,33 +38,32 @@ impl SctpListener {
         unimplemented!();
     }
 
-    /// Section 9.1 RFC 6458
+    /// Binds to one or more local addresses. See: Section 9.1 RFC 6458
     ///
     /// It is possible to call `sctp_bindx` on an already 'bound' (that is 'listen'ing socket.)
     pub fn sctp_bindx(&self, addrs: &[SocketAddr], flags: BindxFlags) -> std::io::Result<()> {
         sctp_bindx_internal(self.inner, addrs, flags)
     }
 
-    /// Section 9.2 RFC 6458
+    /// Peels off a connected SCTP association from the listening socket. See: Section 9.2 RFC 6458
     pub fn sctp_peeloff(
         &self,
         assoc_id: SctpAssociationId,
     ) -> std::io::Result<SctpConnectedSocket> {
         let fd = sctp_peeloff_internal(self.inner, assoc_id)?;
-        // TODO : Actually create an `SctpConnectedSocket` from the returned `fd`.
         Ok(SctpConnectedSocket::from_rawfd(fd.as_raw_fd()))
     }
 
-    /// Section 9.3 RFC 6458
+    /// Get Peer Address(es) for the given Association ID. See: Section 9.3 RFC 6458
     ///
-    /// Get's the Peer Addresses for the association.
+    /// This function is supported on the [`SctpListener`] because in the case of One to Many
+    /// associations that are not peeled off, we are performing IO operations on the listening
+    /// socket itself.
     pub fn sctp_getpaddrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getpaddrs_internal(self.inner, assoc_id)
     }
 
-    /// Section 9.5 RFC 6458
-    ///
-    /// Get's the Local Addresses for the association.
+    /// Get's the Local Addresses for the association. See: Section 9.4 RFC 6458
     pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getladdrs_internal(self.inner, assoc_id)
     }

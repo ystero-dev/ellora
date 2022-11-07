@@ -19,6 +19,7 @@ use super::consts::*;
 
 static SOL_SCTP: libc::c_int = 132;
 
+/// Implementation of `sctp_bindx` using `libc::setsockopt`
 pub(crate) fn sctp_bindx_internal(
     fd: RawFd,
     addrs: &[SocketAddr],
@@ -63,7 +64,7 @@ pub(crate) fn sctp_bindx_internal(
     }
 }
 
-//
+/// Implementation of `sctp_peeloff` using `libc::getsockopt`
 pub(crate) fn sctp_peeloff_internal(
     fd: RawFd,
     assoc_id: SctpAssociationId,
@@ -94,6 +95,10 @@ pub(crate) fn sctp_peeloff_internal(
     }
 }
 
+/// Implementation of `socket` using `libc::socket`.
+///
+/// Based on the type of the requested socket, we pass different `type` parameter to actual
+/// `libc::socket` call. See section 3.1.1 and section 4.1.1 of RFC 6458.
 pub(crate) fn sctp_socket_internal(
     domain: libc::c_int,
     assoc: crate::SocketToAssociation,
@@ -110,6 +115,7 @@ pub(crate) fn sctp_socket_internal(
     }
 }
 
+/// Implementation of `listen` using `libc::listen`
 pub(crate) fn sctp_listen_internal(fd: RawFd, backlog: i32) -> std::io::Result<()> {
     unsafe {
         let result = libc::listen(fd, backlog);
@@ -122,6 +128,7 @@ pub(crate) fn sctp_listen_internal(fd: RawFd, backlog: i32) -> std::io::Result<(
     }
 }
 
+/// Implmentation of `sctp_getpaddrs` using `libc::getsockopt`
 pub(crate) fn sctp_getpaddrs_internal(
     fd: RawFd,
     assoc_id: SctpAssociationId,
@@ -129,6 +136,7 @@ pub(crate) fn sctp_getpaddrs_internal(
     sctp_getaddrs_internal(fd, SCTP_GET_PEER_ADDRS, assoc_id)
 }
 
+/// Implmentation of `sctp_getladdrs` using `libc::getsockopt`
 pub(crate) fn sctp_getladdrs_internal(
     fd: RawFd,
     assoc_id: SctpAssociationId,
@@ -136,6 +144,7 @@ pub(crate) fn sctp_getladdrs_internal(
     sctp_getaddrs_internal(fd, SCTP_GET_LOCAL_ADDRS, assoc_id)
 }
 
+// Actual function performing `sctp_getpaddrs` or `sctp_getladdrs`
 fn sctp_getaddrs_internal(
     fd: RawFd,
     flags: libc::c_int,
@@ -144,6 +153,7 @@ fn sctp_getaddrs_internal(
     let capacity = 4096 as usize;
     let mut addrs_buff = Vec::<u8>::with_capacity(capacity);
     let mut getaddrs_size: libc::socklen_t = capacity as libc::socklen_t;
+
     // Safety: `addrs_buff` has a reserved capacity of 4K bytes which should normally be sufficient
     // for most of the calls to get local or peer addresses. Even if it is not sufficient, the call
     // to `getsockopt` would return an error, thus the memory won't be overwritten.
@@ -168,7 +178,7 @@ fn sctp_getaddrs_internal(
             let addr_count = (*getaddrs_ptr).addr_count;
             let mut sockaddr_ptr = (*getaddrs_ptr).addrs;
             for _ in 0..addr_count {
-                // Now for each of the 'addresses', we try to get the family and then interprete
+                // Now for each of the 'addresses', we try to get the family and then interpret
                 // each of the addresses accordingly and update the pointer.
                 let sa_family = (*(sockaddr_ptr as *const libc::sockaddr)).sa_family;
                 if sa_family as i32 == libc::AF_INET {
@@ -195,6 +205,7 @@ fn sctp_getaddrs_internal(
                             .unwrap(),
                     );
                 } else {
+                    // Unsupported Family - should never come here.
                     return Err(std::io::Error::from_raw_os_error(22));
                 }
             }

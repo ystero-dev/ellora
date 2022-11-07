@@ -8,16 +8,14 @@ use crate::{BindxFlags, SctpListener, SocketToAssociation};
 #[allow(unused)]
 use super::internal::*;
 
-/// SCTP Socket: An unconnected SCTP Socket
+/// A structure representing and unconnected SCTP Socket.
 ///
-/// When we `listen` on this socket, we get an `SCTPListener` on which we can `accept` to get a
-/// `SctpConnectedSocket` (This is like `TCPStream` but since this can have multiple associations
-/// (in theory at-least), we are calling it a 'connected' socket.
+/// When we `listen` on this socket, we get an [`crate::SctpListener`] on which we can `accept` to
+/// get a [`crate::SctpConnectedSocket`] (This is like `TCPStream` but since this can have multiple
+/// associations, we are calling it a 'connected' socket).
 pub struct SctpSocket {
     inner: RawFd,
 }
-
-impl super::__InternalSCTP for SctpSocket {}
 
 impl SctpSocket {
     /// Create a New Socket for IPV4
@@ -39,7 +37,7 @@ impl SctpSocket {
         self.sctp_bindx(&[addr], BindxFlags::Add)
     }
 
-    /// Listen on a given socket
+    /// Listen on a given socket. Returns [`SctpListener`] consuming this structure.
     pub fn listen(self, backlog: i32) -> std::io::Result<SctpListener> {
         sctp_listen_internal(self.inner, backlog)?;
 
