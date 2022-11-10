@@ -9,10 +9,7 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
-use crate::{
-    types::{SctpAssociationId, SctpGetAddrs},
-    BindxFlags,
-};
+use crate::{types::SctpGetAddrs, BindxFlags, SctpAssociationId, SctpConnectedSocket};
 
 #[allow(unused)]
 use super::consts::*;
@@ -210,6 +207,43 @@ fn sctp_getaddrs_internal(
                 }
             }
             Ok(peeraddrs)
+        }
+    }
+}
+
+/// Implementation of `sctp_connectx` using setsockopt.
+pub(crate) fn sctp_connectx_internal(
+    fd: RawFd,
+    addrs: &[SocketAddr],
+) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
+    let mut addrs_u8: Vec<u8> = vec![];
+
+    for addr in addrs {
+        let ossockaddr: OsSocketAddr = (*addr).into();
+        let slice = ossockaddr.as_ref();
+        addrs_u8.extend(slice);
+    }
+
+    let addrs_len = addrs_u8.len();
+
+    // Safety: The passed vector is valid during the function call and hence the passed reference
+    // to raw data is valid.
+    unsafe {
+        let result = libc::setsockopt(
+            fd,
+            SOL_SCTP,
+            SCTP_SOCKOPT_CONNECTX,
+            addrs_u8.as_ptr() as *const _ as *const libc::c_void,
+            addrs_len as libc::socklen_t,
+        );
+
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok((
+                SctpConnectedSocket::from_rawfd(fd),
+                result as SctpAssociationId,
+            ))
         }
     }
 }

@@ -8,3 +8,4 @@ pub(crate) static SCTP_SOCKOPT_BINDX_REM: libc::c_int = 101;
 pub(crate) static SCTP_SOCKOPT_PEELOFF: libc::c_int = 102;
 pub(crate) static SCTP_GET_PEER_ADDRS: libc::c_int = 108;
 pub(crate) static SCTP_GET_LOCAL_ADDRS: libc::c_int = 109;
+pub(crate) static SCTP_SOCKOPT_CONNECTX: libc::c_int = 110;

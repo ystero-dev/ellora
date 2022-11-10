@@ -116,7 +116,19 @@ mod tests {
     #[ignore]
     #[test]
     fn listening_socket_one2one_connected_peeloff_failure() {
-        assert!(false);
+        let server_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+        let bindaddr: SocketAddr = "127.0.0.1:8882".parse().unwrap();
+
+        let result = server_socket.bind(bindaddr.clone());
+        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+
+        let listener = server_socket.listen(10);
+        assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
+        let _listener = listener.unwrap();
+
+        let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+        let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+        assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
     }
 
     #[ignore]

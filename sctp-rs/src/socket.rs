@@ -3,7 +3,9 @@
 use std::net::SocketAddr;
 use std::os::unix::io::RawFd;
 
-use crate::{BindxFlags, SctpListener, SocketToAssociation};
+use crate::{
+    BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpListener, SocketToAssociation,
+};
 
 #[allow(unused)]
 use super::internal::*;
@@ -45,7 +47,7 @@ impl SctpSocket {
     }
 
     /// Accept on a given socket (valid only for `OneToOne` type sockets
-    pub async fn accept(&self) -> std::io::Result<(crate::SctpConnectedSocket, SocketAddr)> {
+    pub async fn accept(&self) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
         unimplemented!();
     }
 
@@ -53,7 +55,7 @@ impl SctpSocket {
     pub async fn connect(
         &self,
         _addr: SocketAddr,
-    ) -> std::io::Result<(crate::SctpConnectedSocket, SocketAddr)> {
+    ) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
         unimplemented!();
     }
 
@@ -73,18 +75,33 @@ impl SctpSocket {
     pub fn sctp_bindx(&self, addrs: &[SocketAddr], flags: BindxFlags) -> std::io::Result<()> {
         sctp_bindx_internal(self.inner, addrs, flags)
     }
+
+    /// Connect to a multi-homed Peer. See Section 9.9 RFC 6458
+    ///
+    /// An Unbound socket when connected to a remote end would return a
+    /// [`SctpConnectedSocket`][`crate::SctpConnectedSocket`] and an
+    /// [`SctpAssociationId`][`crate::types::SctpAssociationId`] tuple.
+    pub fn sctp_connectx(
+        self,
+        addrs: &[SocketAddr],
+    ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
+        sctp_connectx_internal(self.inner, addrs)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::{BindxFlags, SctpSocket, SocketToAssociation};
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
     mod bindx {
-        use crate::{BindxFlags, SocketToAssociation};
-        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+
+        #[allow(unused)]
+        use super::*;
 
         #[test]
         fn test_bind_success() {
-            let sctp_socket = crate::SctpSocket::new_v4(SocketToAssociation::OneToOne);
+            let sctp_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
             let bindaddr = Ipv4Addr::UNSPECIFIED;
 
             let result = sctp_socket.bind(SocketAddr::new(IpAddr::V4(bindaddr), 0));
@@ -93,7 +110,7 @@ mod tests {
 
         #[test]
         fn test_bindx_inaddr_any_add_success() {
-            let sctp_socket = crate::SctpSocket::new_v4(SocketToAssociation::OneToOne);
+            let sctp_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
             let bindaddr = Ipv4Addr::UNSPECIFIED;
 
             let result = sctp_socket
@@ -103,7 +120,7 @@ mod tests {
 
         #[test]
         fn test_bindx_inaddr6_any_add_success() {
-            let sctp_socket = crate::SctpSocket::new_v6(SocketToAssociation::OneToOne);
+            let sctp_socket = SctpSocket::new_v6(SocketToAssociation::OneToOne);
             let bindaddr = Ipv6Addr::UNSPECIFIED;
 
             let result = sctp_socket
@@ -113,7 +130,7 @@ mod tests {
 
         #[test]
         fn test_bindx_inaddr_any_add_and_remove_failure() {
-            let sctp_socket = crate::SctpSocket::new_v6(SocketToAssociation::OneToOne);
+            let sctp_socket = SctpSocket::new_v6(SocketToAssociation::OneToOne);
             let bindaddr6_localhost = Ipv6Addr::LOCALHOST;
 
             let result = sctp_socket.sctp_bindx(
@@ -127,6 +144,27 @@ mod tests {
                 BindxFlags::Remove,
             );
             assert!(result.is_err(), "{:#?}", result.ok().unwrap());
+        }
+    }
+
+    mod connectx {
+        #[allow(unused)]
+        use super::*;
+
+        #[test]
+        fn test_listen_connectx_succeeds() {
+            let server_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+            let bindaddr: SocketAddr = "127.0.0.1:8880".parse().unwrap();
+
+            let result = server_socket.bind(bindaddr.clone());
+            assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+
+            let listener = server_socket.listen(10);
+            assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
+
+            let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+            let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+            assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
         }
     }
 }
