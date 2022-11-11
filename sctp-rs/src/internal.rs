@@ -147,8 +147,8 @@ fn sctp_getaddrs_internal(
     flags: libc::c_int,
     assoc_id: SctpAssociationId,
 ) -> std::io::Result<Vec<SocketAddr>> {
-    let capacity = 4096 as usize;
-    let mut addrs_buff = Vec::<u8>::with_capacity(capacity);
+    let capacity = 256_usize;
+    let mut addrs_buff: Vec<u8> = vec![0; capacity];
     let mut getaddrs_size: libc::socklen_t = capacity as libc::socklen_t;
 
     // Safety: `addrs_buff` has a reserved capacity of 4K bytes which should normally be sufficient
@@ -156,6 +156,7 @@ fn sctp_getaddrs_internal(
     // to `getsockopt` would return an error, thus the memory won't be overwritten.
     unsafe {
         let mut getaddrs_ptr = addrs_buff.as_mut_ptr() as *mut SctpGetAddrs;
+        eprintln!("getaddrs_ptr: {:?}", getaddrs_ptr);
         (*getaddrs_ptr).assoc_id = assoc_id;
         let getaddrs_size_ptr = std::ptr::addr_of_mut!(getaddrs_size);
         let result = libc::getsockopt(
@@ -166,6 +167,7 @@ fn sctp_getaddrs_internal(
             getaddrs_size_ptr as *mut _ as *mut libc::socklen_t,
         );
         if result < 0 {
+            eprintln!("result: {}", result);
             Err(std::io::Error::last_os_error())
         } else {
             let mut peeraddrs = vec![];
@@ -173,15 +175,18 @@ fn sctp_getaddrs_internal(
             // The call succeeded, we need to do a lot of ugly pointer arithmetic, first we get the
             // number of addresses of the peer `addr_count` written to by the call to `getsockopt`.
             let addr_count = (*getaddrs_ptr).addr_count;
-            let mut sockaddr_ptr = (*getaddrs_ptr).addrs;
+            eprintln!("3:getaddrs: {:#?}", (*getaddrs_ptr));
+            eprintln!("3:getaddrs: {:x?}", addrs_buff);
+
+            let mut sockaddr_ptr = std::ptr::addr_of!((*getaddrs_ptr).addrs);
             for _ in 0..addr_count {
                 // Now for each of the 'addresses', we try to get the family and then interpret
                 // each of the addresses accordingly and update the pointer.
-                let sa_family = (*(sockaddr_ptr as *const libc::sockaddr)).sa_family;
+                let sa_family = (*(sockaddr_ptr as *const _ as *const libc::sockaddr)).sa_family;
                 if sa_family as i32 == libc::AF_INET {
                     let os_socketaddr = OsSocketAddr::from_raw_parts(
-                        sockaddr_ptr,
-                        std::mem::size_of::<libc::sockaddr_in>().try_into().unwrap(),
+                        sockaddr_ptr as *const _ as *const u8,
+                        std::mem::size_of::<libc::sockaddr_in>(),
                     );
                     let socketaddr = os_socketaddr.into_addr().unwrap();
                     peeraddrs.push(socketaddr);
@@ -189,10 +194,8 @@ fn sctp_getaddrs_internal(
                         .offset(std::mem::size_of::<libc::sockaddr_in>().try_into().unwrap());
                 } else if sa_family as i32 == libc::AF_INET6 {
                     let os_socketaddr = OsSocketAddr::from_raw_parts(
-                        sockaddr_ptr,
-                        std::mem::size_of::<libc::sockaddr_in6>()
-                            .try_into()
-                            .unwrap(),
+                        sockaddr_ptr as *const _ as *const u8,
+                        std::mem::size_of::<libc::sockaddr_in6>(),
                     );
                     let socketaddr = os_socketaddr.into_addr().unwrap();
                     peeraddrs.push(socketaddr);
@@ -211,7 +214,7 @@ fn sctp_getaddrs_internal(
     }
 }
 
-/// Implementation of `sctp_connectx` using setsockopt.
+// Implementation of `sctp_connectx` using setsockopt.
 pub(crate) fn sctp_connectx_internal(
     fd: RawFd,
     addrs: &[SocketAddr],
@@ -244,6 +247,40 @@ pub(crate) fn sctp_connectx_internal(
                 SctpConnectedSocket::from_rawfd(fd),
                 result as SctpAssociationId,
             ))
+        }
+    }
+}
+
+// Implementation of `accept` - we just call the `libc::accept` allowing it to fail if the socket
+// type is not the right one (UDP Style `SOCK_SEQPACKET`).
+pub(crate) fn accept_internal(fd: RawFd) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
+    // this should be enough to `accept` a connection normally `sockaddr`s maximum size is 28 for
+    // the `sa_family` we care about.
+    let mut addrs_buff: Vec<u8> = vec![0; 32];
+    addrs_buff.reserve(32);
+    let mut addrs_len = addrs_buff.len();
+
+    eprintln!("addrs_len: {}, addrs_u8: {:?}", addrs_len, addrs_buff,);
+    // Safety: Both `addrs_buff` and `addrs_len` are in the scope and hence are valid pointers.
+    unsafe {
+        let addrs_len_ptr = std::ptr::addr_of_mut!(addrs_len);
+        let addrs_buff_ptr = addrs_buff.as_mut_ptr();
+        let result = libc::accept(
+            fd,
+            addrs_buff_ptr as *mut _ as *mut libc::sockaddr,
+            addrs_len_ptr as *mut _ as *mut libc::socklen_t,
+        );
+
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            let os_socketaddr = OsSocketAddr::from_raw_parts(addrs_buff.as_ptr(), addrs_len);
+            eprintln!(
+                "result: {},  addrs_len: {}, addrs_u8: {:?}",
+                result, addrs_len, addrs_buff,
+            );
+            let socketaddr = os_socketaddr.into_addr().unwrap();
+            Ok((SctpConnectedSocket::from_rawfd(result as RawFd), socketaddr))
         }
     }
 }

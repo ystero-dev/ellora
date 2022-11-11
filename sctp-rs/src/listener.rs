@@ -5,7 +5,7 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 #[allow(unused)]
 use crate::internal::*;
-use crate::{types::SctpAssociationId, BindxFlags, SctpConnectedSocket};
+use crate::{types::SctpAssociationId, BindxFlags, SctpConnectedSocket, SctpNotificationOrData};
 
 /// A structure representing a socket that is listening for incoming SCTP Connections.
 ///
@@ -19,8 +19,8 @@ pub struct SctpListener {
 
 impl SctpListener {
     /// Accept on a given socket (valid only for `OneToOne` type sockets
-    pub async fn accept(&self) -> std::io::Result<(crate::SctpConnectedSocket, SocketAddr)> {
-        unimplemented!();
+    pub fn accept(&self) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
+        accept_internal(self.inner)
     }
 
     /// Close the socket
@@ -66,6 +66,13 @@ impl SctpListener {
     /// Get's the Local Addresses for the association. See: Section 9.4 RFC 6458
     pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getladdrs_internal(self.inner, assoc_id)
+    }
+
+    /// Receive Data or Notification from the listening socket.
+    ///
+    /// This function returns either a notification or the data.
+    pub fn sctp_recvv(&self) -> std::io::Result<SctpNotificationOrData> {
+        unimplemented!();
     }
 
     // functions not part of public APIs
@@ -136,5 +143,50 @@ mod tests {
     fn listening_socket_one2many_connected_peeloff_success() {
         // TODO Actual test implementation.
         assert!(false);
+    }
+
+    #[test]
+    fn listening_one_2_one_listen_accept_success() {
+        let server_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+        let bindaddr: SocketAddr = "127.0.0.1:8883".parse().unwrap();
+
+        let result = server_socket.bind(bindaddr.clone());
+        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+
+        let listener = server_socket.listen(10);
+        assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
+        let listener = listener.unwrap();
+
+        let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+        let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+        assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
+
+        let accept = listener.accept();
+        assert!(accept.is_ok(), "{:#?}", accept.err().unwrap());
+
+        // Get Peer Address
+        let (accepted, _address) = accept.unwrap();
+        let result = accepted.sctp_getpaddrs(0);
+        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+    }
+
+    #[test]
+    fn listening_one_2_many_listen_accept_failure() {
+        let server_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+        let bindaddr: SocketAddr = "127.0.0.1:8884".parse().unwrap();
+
+        let result = server_socket.bind(bindaddr.clone());
+        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+
+        let listener = server_socket.listen(10);
+        assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
+        let listener = listener.unwrap();
+
+        let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+        let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+        assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
+
+        let accept = listener.accept();
+        assert!(accept.is_err(), "{:#?}", accept.ok().unwrap());
     }
 }

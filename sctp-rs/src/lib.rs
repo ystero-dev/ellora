@@ -32,4 +32,4 @@ mod consts;
 mod types;
 
 #[doc(inline)]
-pub use types::{BindxFlags, SctpAssociationId, SocketToAssociation};
+pub use types::{BindxFlags, SctpAssociationId, SctpNotificationOrData, SocketToAssociation};
