@@ -85,11 +85,21 @@ impl SctpListener {
 mod tests {
     use crate::*;
     use std::net::SocketAddr;
+    use std::sync::atomic::{AtomicU16, Ordering};
 
-    #[test]
-    fn listening_sctp_bindx_add_success() {
-        let sctp_socket = crate::SctpSocket::new_v6(SocketToAssociation::OneToOne);
-        let bindaddr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+    static TEST_PORT_NO: AtomicU16 = AtomicU16::new(8080);
+
+    fn create_socket_bind_and_listen(
+        association: SocketToAssociation,
+        v4: bool,
+    ) -> (SctpListener, SocketAddr) {
+        let sctp_socket = if v4 {
+            crate::SctpSocket::new_v4(association)
+        } else {
+            crate::SctpSocket::new_v6(association)
+        };
+        let port = TEST_PORT_NO.fetch_add(1, Ordering::SeqCst);
+        let bindaddr: SocketAddr = format!("127.0.0.1:{}", port).parse().unwrap();
 
         let result = sctp_socket.bind(bindaddr);
         assert!(result.is_ok(), "{:#?}", result.err().unwrap());
@@ -97,25 +107,23 @@ mod tests {
         let listener = sctp_socket.listen(10);
         assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
 
-        let listener = listener.unwrap();
-        let bindaddr = "127.0.0.53:8080".parse().unwrap();
-        let result = listener.sctp_bindx(&[bindaddr], BindxFlags::Add);
+        (listener.unwrap(), bindaddr)
+    }
+
+    #[test]
+    fn listening_sctp_bindx_add_success() {
+        let (listener, bindaddr) =
+            create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
+
+        let bindx_bindaddr: SocketAddr = format!("127.0.0.53:{}", bindaddr.port()).parse().unwrap();
+        let result = listener.sctp_bindx(&[bindx_bindaddr], BindxFlags::Add);
         assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     }
 
     #[test]
     fn listening_socket_no_connect_peeloff_failure() {
-        let sctp_socket = crate::SctpSocket::new_v4(SocketToAssociation::OneToMany);
+        let (listener, _) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
-        let bindaddr: SocketAddr = "127.0.0.1:0".parse().unwrap();
-
-        let result = sctp_socket.bind(bindaddr);
-        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
-
-        let listener = sctp_socket.listen(10);
-        assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
-
-        let listener = listener.unwrap();
         let result = listener.sctp_peeloff(42);
         assert!(result.is_err(), "{:#?}", result.ok().unwrap());
     }
@@ -123,15 +131,8 @@ mod tests {
     #[ignore]
     #[test]
     fn listening_socket_one2one_connected_peeloff_failure() {
-        let server_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
-        let bindaddr: SocketAddr = "127.0.0.1:8882".parse().unwrap();
-
-        let result = server_socket.bind(bindaddr.clone());
-        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
-
-        let listener = server_socket.listen(10);
-        assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
-        let _listener = listener.unwrap();
+        let (_listener, bindaddr) =
+            create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
         let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
         let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
@@ -147,15 +148,8 @@ mod tests {
 
     #[test]
     fn listening_one_2_one_listen_accept_success() {
-        let server_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
-        let bindaddr: SocketAddr = "127.0.0.1:8883".parse().unwrap();
-
-        let result = server_socket.bind(bindaddr.clone());
-        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
-
-        let listener = server_socket.listen(10);
-        assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
-        let listener = listener.unwrap();
+        let (listener, bindaddr) =
+            create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
 
         let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
         let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
@@ -172,15 +166,8 @@ mod tests {
 
     #[test]
     fn listening_one_2_many_listen_accept_failure() {
-        let server_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
-        let bindaddr: SocketAddr = "127.0.0.1:8884".parse().unwrap();
-
-        let result = server_socket.bind(bindaddr.clone());
-        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
-
-        let listener = server_socket.listen(10);
-        assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
-        let listener = listener.unwrap();
+        let (listener, bindaddr) =
+            create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
         let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
         let assoc_id = client_socket.sctp_connectx(&[bindaddr]);

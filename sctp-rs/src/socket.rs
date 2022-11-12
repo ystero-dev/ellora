@@ -146,25 +146,4 @@ mod tests {
             assert!(result.is_err(), "{:#?}", result.ok().unwrap());
         }
     }
-
-    mod connectx {
-        #[allow(unused)]
-        use super::*;
-
-        #[test]
-        fn test_listen_connectx_succeeds() {
-            let server_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
-            let bindaddr: SocketAddr = "127.0.0.1:8880".parse().unwrap();
-
-            let result = server_socket.bind(bindaddr.clone());
-            assert!(result.is_ok(), "{:#?}", result.err().unwrap());
-
-            let listener = server_socket.listen(10);
-            assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
-
-            let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
-            let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
-            assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
-        }
-    }
 }
