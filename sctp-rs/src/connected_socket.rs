@@ -32,22 +32,10 @@ impl SctpConnectedSocket {
         Self { inner: rawfd }
     }
 
-    /// Perform a graceful shutdown on the connected socket.
-    ///
-    /// In the case of peeled off socket of One to Many associations, this will only close the
-    /// peeled off association. Use `close` on [`SctpListener`][`crate::SctpListener`] to close all
-    /// the associations of a one to many socket that are not peeled off.
-    ///
-    /// In the case of One to One association, the graceful shutdown is performed on the connected
-    /// socket.
-    pub fn close(&self) -> std::io::Result<()> {
-        unimplemented!();
-    }
-
     /// Perform a TCP like half close. Note: however that the semantics for TCP and SCTP half close
     /// are different. See section 4.1.7 of RFC 6458 for details.
-    pub fn shutdown(&self, _how: std::net::Shutdown) -> std::io::Result<()> {
-        unimplemented!();
+    pub fn shutdown(&self, how: std::net::Shutdown) -> std::io::Result<()> {
+        shutdown_internal(self.inner, how)
     }
 
     /// Bind to addresses on the given socket. See Section 9.1 RFC 6458.
@@ -66,6 +54,13 @@ impl SctpConnectedSocket {
     /// Get Local addresses for the association. See section 9.5 RFC 6458.
     pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getladdrs_internal(self.inner, assoc_id)
+    }
+}
+
+impl Drop for SctpConnectedSocket {
+    // Drop for `SctpConnectedSocket`. We close the `inner` RawFd
+    fn drop(&mut self) {
+        unsafe { _ = libc::close(self.inner) }
     }
 }
 

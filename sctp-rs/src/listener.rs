@@ -23,14 +23,9 @@ impl SctpListener {
         accept_internal(self.inner)
     }
 
-    /// Close the socket
-    pub fn close(&self) -> std::io::Result<()> {
-        unimplemented!();
-    }
-
     /// Shutdown on the socket
-    pub fn shutdown(&self, _how: std::net::Shutdown) -> std::io::Result<()> {
-        unimplemented!();
+    pub fn shutdown(&self, how: std::net::Shutdown) -> std::io::Result<()> {
+        shutdown_internal(self.inner, how)
     }
 
     /// For a `OneToMany` this implicitly accepts (So should return a `SctpConnectedSocket`.)
@@ -78,6 +73,13 @@ impl SctpListener {
     // functions not part of public APIs
     pub(crate) fn from_raw_fd(fd: RawFd) -> Self {
         Self { inner: fd }
+    }
+}
+
+impl Drop for SctpListener {
+    // Drop for `SctpListener`. We close the `inner` RawFd
+    fn drop(&mut self) {
+        unsafe { _ = libc::close(self.inner) }
     }
 }
 

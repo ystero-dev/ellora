@@ -284,3 +284,25 @@ pub(crate) fn accept_internal(fd: RawFd) -> std::io::Result<(SctpConnectedSocket
         }
     }
 }
+
+// Shutdown implementation for `SctpListener` and `SctpConnectedSocket`.
+pub(crate) fn shutdown_internal(fd: RawFd, how: std::net::Shutdown) -> std::io::Result<()> {
+    use std::net::Shutdown;
+
+    let flags = match how {
+        Shutdown::Read => libc::SHUT_RD,
+        Shutdown::Write => libc::SHUT_WR,
+        Shutdown::Both => libc::SHUT_RDWR,
+    };
+
+    // Safety: No real undefined behavior as long as fd is a valid fd and if fd is not a valid fd
+    // the underlying systemcall will error.
+    unsafe {
+        let result = libc::shutdown(fd, flags);
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+}

@@ -46,27 +46,12 @@ impl SctpSocket {
         Ok(SctpListener::from_raw_fd(self.inner))
     }
 
-    /// Accept on a given socket (valid only for `OneToOne` type sockets
-    pub async fn accept(&self) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
-        unimplemented!();
-    }
-
     /// Connect to a given Server
     pub async fn connect(
         &self,
-        _addr: SocketAddr,
-    ) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
-        unimplemented!();
-    }
-
-    /// Close the socket
-    pub fn close(&self) -> std::io::Result<()> {
-        unimplemented!();
-    }
-
-    /// Shutdown on the socket
-    pub fn shutdown(&self, _how: std::net::Shutdown) -> std::io::Result<()> {
-        unimplemented!();
+        addr: SocketAddr,
+    ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
+        sctp_connectx_internal(self.inner, &[addr])
     }
 
     /// Section 9.1 RFC 6458
