@@ -92,6 +92,7 @@ impl Drop for SctpListener {
 
 #[cfg(test)]
 mod tests {
+    use crate::consts::*;
     use crate::*;
     use std::net::SocketAddr;
     use std::sync::atomic::{AtomicU16, Ordering};
@@ -168,9 +169,30 @@ mod tests {
         let result = listener.sctp_recv();
         assert!(result.is_ok(), "{:#}", result.err().unwrap());
 
-        // Wrong association_id: 0 should fail.
-        let received = listener.sctp_peeloff(0);
-        assert!(received.is_err(), "{:#?}", received.ok().unwrap());
+        let notification = result.unwrap();
+        assert!(
+            matches!(
+                notification,
+                SctpNotificationOrData::Notification(SctpNotification::AssociationChange(
+                    AssociationChange { .. }
+                ))
+            ),
+            "{:#?}",
+            notification
+        );
+
+        if let SctpNotificationOrData::Notification(SctpNotification::AssociationChange(
+            AssociationChange {
+                assoc_id, state, ..
+            },
+        )) = notification
+        {
+            let received = listener.sctp_peeloff(assoc_id);
+            assert!(received.is_ok(), "{:#?}", received.err().unwrap());
+            assert!(state == SCTP_COMM_UP, "{}", state);
+        } else {
+            assert!(false, "Should never come here!: {:#?}", notification);
+        };
     }
 
     #[test]

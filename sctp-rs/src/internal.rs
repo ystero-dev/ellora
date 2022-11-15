@@ -11,7 +11,8 @@ use os_socketaddr::OsSocketAddr;
 
 use crate::types::internal::{SctpEventSubscribe, SctpGetAddrs};
 use crate::{
-    BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent, SctpNotificationOrData,
+    AssociationChange, BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent,
+    SctpNotification, SctpNotificationOrData,
 };
 
 #[allow(unused)]
@@ -337,9 +338,44 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {
-            eprintln!("flags: {:x}", flags);
-            Ok(SctpNotificationOrData::SctpNotification)
+            let received_flags: u32 = recvmsg_header.msg_flags.try_into().unwrap();
+            eprintln!("received_flags: {:x}", received_flags);
+            recv_buffer.truncate(result as usize);
+            eprintln!("buffer: {:x?}", recv_buffer);
+
+            if received_flags & MSG_NOTIFICATION != 0 {
+                Ok(SctpNotificationOrData::Notification(
+                    notification_from_message(&recv_buffer),
+                ))
+            } else {
+                Ok(SctpNotificationOrData::Data(recv_buffer))
+            }
         }
+    }
+}
+
+fn notification_from_message(data: &[u8]) -> SctpNotification {
+    let notification_type = u16::from_ne_bytes(data[0..2].try_into().unwrap());
+    eprintln!(
+        "notification_type: {:x}, SCTP_ASSOC_CHANGE: {:x}",
+        notification_type, SCTP_ASSOC_CHANGE
+    );
+    match notification_type {
+        SCTP_ASSOC_CHANGE => {
+            let assoc_change = AssociationChange {
+                assoc_type: u16::from_ne_bytes(data[0..2].try_into().unwrap()),
+                flags: u16::from_ne_bytes(data[2..4].try_into().unwrap()),
+                length: u32::from_ne_bytes(data[4..8].try_into().unwrap()),
+                state: u16::from_ne_bytes(data[8..10].try_into().unwrap()),
+                error: u16::from_ne_bytes(data[10..12].try_into().unwrap()),
+                ob_streams: u16::from_ne_bytes(data[12..14].try_into().unwrap()),
+                ib_streams: u16::from_ne_bytes(data[14..16].try_into().unwrap()),
+                assoc_id: i32::from_ne_bytes(data[16..20].try_into().unwrap()),
+                info: data[20..].into(),
+            };
+            SctpNotification::AssociationChange(assoc_change)
+        }
+        _ => SctpNotification::Unsupported,
     }
 }
 

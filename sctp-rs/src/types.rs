@@ -27,13 +27,36 @@ pub enum SocketToAssociation {
 }
 
 /// SctpNotificationOrData: A type returned by a `sctp_recvv` call.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum SctpNotificationOrData {
     /// SCTP Notification received by an `sctp_recvv` call
-    SctpNotification,
+    Notification(SctpNotification),
 
     /// SCTP Data Received by an association.
-    SctpData,
+    Data(Vec<u8>),
+}
+
+#[derive(Debug)]
+pub enum SctpNotification {
+    /// Association Change Notification. See Section 6.1.1 of RFC 6458
+    AssociationChange(AssociationChange),
+
+    /// A Catchall Notification type for the Notifications that are not supported
+    Unsupported,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct AssociationChange {
+    pub assoc_type: u16,
+    pub flags: u16,
+    pub length: u32,
+    pub state: u16,
+    pub error: u16,
+    pub ob_streams: u16,
+    pub ib_streams: u16,
+    pub assoc_id: SctpAssociationId,
+    pub info: Vec<u8>,
 }
 
 /// SctpEvent: Used for Subscribing for SCTP Events
