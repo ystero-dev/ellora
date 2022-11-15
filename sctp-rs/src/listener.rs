@@ -5,7 +5,9 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 #[allow(unused)]
 use crate::internal::*;
-use crate::{types::SctpAssociationId, BindxFlags, SctpConnectedSocket, SctpNotificationOrData};
+use crate::{
+    types::SctpAssociationId, BindxFlags, SctpConnectedSocket, SctpEvent, SctpNotificationOrData,
+};
 
 /// A structure representing a socket that is listening for incoming SCTP Connections.
 ///
@@ -66,10 +68,15 @@ impl SctpListener {
     /// Receive Data or Notification from the listening socket.
     ///
     /// This function returns either a notification or the data.
-    pub fn sctp_recvv(&self) -> std::io::Result<SctpNotificationOrData> {
-        unimplemented!();
+    pub fn sctp_recv(&self) -> std::io::Result<SctpNotificationOrData> {
+        sctp_recvmsg_internal(self.inner)
     }
 
+    /// Event Subscription for the socket.
+    pub fn sctp_subscribe_events(&self, events: &[SctpEvent]) -> std::io::Result<()> {
+        sctp_events_subscribe_internal(self.inner, events)
+    }
+    //
     // functions not part of public APIs
     pub(crate) fn from_raw_fd(fd: RawFd) -> Self {
         Self { inner: fd }
@@ -130,22 +137,40 @@ mod tests {
         assert!(result.is_err(), "{:#?}", result.ok().unwrap());
     }
 
-    #[ignore]
     #[test]
     fn listening_socket_one2one_connected_peeloff_failure() {
-        let (_listener, bindaddr) =
-            create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
+        let (listener, bindaddr) =
+            create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
+
+        let result = listener.sctp_subscribe_events(&[SctpEvent::Association, SctpEvent::DataIo]);
+        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
         let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
         let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
         assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
+
+        let received = listener.sctp_peeloff(0);
+        assert!(received.is_err(), "{:#?}", received.ok().unwrap());
     }
 
-    #[ignore]
     #[test]
     fn listening_socket_one2many_connected_peeloff_success() {
-        // TODO Actual test implementation.
-        assert!(false);
+        let (listener, bindaddr) =
+            create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
+
+        let result = listener.sctp_subscribe_events(&[SctpEvent::Association, SctpEvent::DataIo]);
+        assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+
+        let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+        let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+        assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
+
+        let result = listener.sctp_recv();
+        assert!(result.is_ok(), "{:#}", result.err().unwrap());
+
+        // Wrong association_id: 0 should fail.
+        let received = listener.sctp_peeloff(0);
+        assert!(received.is_err(), "{:#?}", received.ok().unwrap());
     }
 
     #[test]

@@ -67,3 +67,44 @@ pub(crate) struct SctpGetAddrs {
     // public API, our users don't have to worry about it.
     pub(crate) addrs: u8,
 }
+
+// Structure used for subscribing to Event notifications.
+//
+// See Also: `struct sctp_event_subscribe` inside `/usr/include/linux/sctp.h`
+//
+// TODO: Add a `builder` structure for this.
+#[repr(C)]
+#[derive(Debug, Default)]
+pub(crate) struct SctpEventSubscribe {
+    pub(crate) data_io: u8,
+    pub(crate) association: u8,
+    pub(crate) address: u8,
+    pub(crate) send_failure: u8,
+    pub(crate) peer_error: u8,
+    pub(crate) shutdown: u8,
+    pub(crate) partial_delivery: u8,
+    pub(crate) adaptation_layer: u8,
+    pub(crate) authentication: u8,
+    pub(crate) sender_dry: u8,
+    pub(crate) stream_reset: u8,
+    pub(crate) association_reset: u8,
+    pub(crate) stream_change: u8,
+    pub(crate) send_failure_event: u8,
+}
+
+pub enum SctpEvent {
+    DataIo,
+    Association,
+    Address,
+    SendFailure,
+    PeerError,
+    Shutdown,
+    PartialDelivery,
+    AdaptationLayer,
+    Authentication,
+    SenderDry,
+    StreamReset,
+    AssociationReset,
+    StreamChange,
+    SendFailureEvent,
+}

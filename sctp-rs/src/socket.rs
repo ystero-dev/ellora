@@ -4,7 +4,8 @@ use std::net::SocketAddr;
 use std::os::unix::io::RawFd;
 
 use crate::{
-    BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpListener, SocketToAssociation,
+    BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent, SctpListener,
+    SocketToAssociation,
 };
 
 #[allow(unused)]
@@ -71,6 +72,11 @@ impl SctpSocket {
         addrs: &[SocketAddr],
     ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
         sctp_connectx_internal(self.inner, addrs)
+    }
+
+    /// Event Subscription for the socket.
+    pub fn sctp_subscribe_events(&self, events: &[SctpEvent]) -> std::io::Result<()> {
+        sctp_events_subscribe_internal(self.inner, events)
     }
 }
 

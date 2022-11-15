@@ -9,7 +9,10 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
-use crate::{types::SctpGetAddrs, BindxFlags, SctpAssociationId, SctpConnectedSocket};
+use crate::{
+    types::{SctpEventSubscribe, SctpGetAddrs},
+    BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent, SctpNotificationOrData,
+};
 
 #[allow(unused)]
 use super::consts::*;
@@ -299,6 +302,85 @@ pub(crate) fn shutdown_internal(fd: RawFd, how: std::net::Shutdown) -> std::io::
     // the underlying systemcall will error.
     unsafe {
         let result = libc::shutdown(fd, flags);
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+// Implementation for the receive side for SCTP.
+// TODO: Handle Control Message Header
+pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificationOrData> {
+    let mut recv_buffer = vec![0_u8; 4096];
+    let mut recv_iov = libc::iovec {
+        iov_base: recv_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
+        iov_len: recv_buffer.len(),
+    };
+
+    let mut from_buffer = vec![0u8; 256];
+    let mut recvmsg_header = libc::msghdr {
+        msg_name: from_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
+        msg_namelen: from_buffer.len() as u32,
+        msg_iov: &mut recv_iov,
+        msg_iovlen: 1,
+        msg_control: std::ptr::null::<libc::c_int>() as *mut libc::c_void,
+        msg_controllen: 0,
+        msg_flags: 0,
+    };
+
+    // Safety: recvmsg_hdr is valid in the current scope.
+    unsafe {
+        let flags = 0 as libc::c_int;
+        let result = libc::recvmsg(fd, &mut recvmsg_header as *mut libc::msghdr, flags);
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            eprintln!("flags: {:x}", flags);
+            Ok(SctpNotificationOrData::SctpNotification)
+        }
+    }
+}
+
+// Implementation of Event Subscription
+pub(crate) fn sctp_events_subscribe_internal(
+    fd: RawFd,
+    events: &[SctpEvent],
+) -> std::io::Result<()> {
+    let mut subscriber = SctpEventSubscribe::default();
+
+    for ev in events {
+        match ev {
+            SctpEvent::DataIo => subscriber.data_io = 1,
+            SctpEvent::Association => subscriber.association = 1,
+            SctpEvent::Address => subscriber.address = 1,
+            SctpEvent::SendFailure => subscriber.send_failure = 1,
+            SctpEvent::PeerError => subscriber.peer_error = 1,
+            SctpEvent::Shutdown => subscriber.shutdown = 1,
+            SctpEvent::PartialDelivery => subscriber.partial_delivery = 1,
+            SctpEvent::AdaptationLayer => subscriber.adaptation_layer = 1,
+            SctpEvent::Authentication => subscriber.authentication = 1,
+            SctpEvent::SenderDry => subscriber.sender_dry = 1,
+            SctpEvent::StreamReset => subscriber.stream_reset = 1,
+            SctpEvent::AssociationReset => subscriber.association_reset = 1,
+            SctpEvent::StreamChange => subscriber.stream_change = 1,
+            SctpEvent::SendFailureEvent => subscriber.send_failure_event = 1,
+        }
+    }
+
+    eprintln!("subscriber: {:#?}", subscriber);
+    // safety:
+    unsafe {
+        let result = libc::setsockopt(
+            fd,
+            SOL_SCTP,
+            SCTP_EVENTS,
+            &subscriber as *const _ as *const libc::c_void,
+            std::mem::size_of::<SctpEventSubscribe>()
+                .try_into()
+                .unwrap(),
+        );
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {
