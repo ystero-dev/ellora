@@ -9,8 +9,8 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
+use crate::types::internal::{SctpEventSubscribe, SctpGetAddrs};
 use crate::{
-    types::{SctpEventSubscribe, SctpGetAddrs},
     BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent, SctpNotificationOrData,
 };
 
@@ -69,7 +69,7 @@ pub(crate) fn sctp_peeloff_internal(
     fd: RawFd,
     assoc_id: SctpAssociationId,
 ) -> std::io::Result<RawFd> {
-    use crate::types::SctpPeeloffArg;
+    use crate::types::internal::SctpPeeloffArg;
 
     let mut peeloff_arg = SctpPeeloffArg::from_assoc_id(assoc_id);
     let mut peeloff_size: libc::socklen_t =
@@ -386,5 +386,13 @@ pub(crate) fn sctp_events_subscribe_internal(
         } else {
             Ok(())
         }
+    }
+}
+
+// Close the socket
+#[inline(always)]
+pub(crate) fn close_internal(fd: RawFd) {
+    unsafe {
+        _ = libc::close(fd);
     }
 }

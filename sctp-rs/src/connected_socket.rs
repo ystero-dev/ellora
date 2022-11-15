@@ -60,7 +60,7 @@ impl SctpConnectedSocket {
 impl Drop for SctpConnectedSocket {
     // Drop for `SctpConnectedSocket`. We close the `inner` RawFd
     fn drop(&mut self) {
-        unsafe { _ = libc::close(self.inner) }
+        close_internal(self.inner);
     }
 }
 

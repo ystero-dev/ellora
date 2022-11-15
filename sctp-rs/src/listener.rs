@@ -86,7 +86,7 @@ impl SctpListener {
 impl Drop for SctpListener {
     // Drop for `SctpListener`. We close the `inner` RawFd
     fn drop(&mut self) {
-        unsafe { _ = libc::close(self.inner) }
+        close_internal(self.inner);
     }
 }
 
