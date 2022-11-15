@@ -62,8 +62,10 @@ pub struct AssociationChange {
 /// SctpEvent: Used for Subscribing for SCTP Events
 ///
 /// See [`sctp_subscribe_events`][`crate::SctpListener::sctp_subscribe_events`] for the usage.
+#[repr(u16)]
+#[derive(Debug)]
 pub enum SctpEvent {
-    DataIo,
+    DataIo = (1 << 15),
     Association,
     Address,
     SendFailure,
@@ -77,6 +79,28 @@ pub enum SctpEvent {
     AssociationReset,
     StreamChange,
     SendFailureEvent,
+}
+
+/// SubscribeEventAssocId: AssociationID Used for Event Subscription
+///
+/// Note: repr should be same as `SctpAssociationId` (ie. `i32`)
+#[repr(i32)]
+pub enum SubscribeEventAssocId {
+    Future,
+    Current,
+    All,
+    Value(SctpAssociationId),
+}
+
+impl From<SubscribeEventAssocId> for SctpAssociationId {
+    fn from(value: SubscribeEventAssocId) -> Self {
+        match value {
+            SubscribeEventAssocId::Future => 0 as Self,
+            SubscribeEventAssocId::Current => 1 as Self,
+            SubscribeEventAssocId::All => 2 as Self,
+            SubscribeEventAssocId::Value(v) => v,
+        }
+    }
 }
 
 pub(crate) mod internal;

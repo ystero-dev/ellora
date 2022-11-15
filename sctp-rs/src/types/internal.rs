@@ -1,6 +1,6 @@
 // Structures below are used by the implementation details and are not part of the public API.
 
-use crate::SctpAssociationId;
+use crate::{SctpAssociationId, SctpEvent};
 
 // Structure used by `sctp_peeloff` (Section 9.2)
 #[repr(C)]
@@ -32,26 +32,10 @@ pub(crate) struct SctpGetAddrs {
     pub(crate) addrs: u8,
 }
 
-// Structure used for subscribing to Event notifications.
-//
-// See Also: `struct sctp_event_subscribe` inside `/usr/include/linux/sctp.h`
-//
-// TODO: Add a `builder` structure for this.
 #[repr(C)]
-#[derive(Debug, Default)]
-pub(crate) struct SctpEventSubscribe {
-    pub(crate) data_io: u8,
-    pub(crate) association: u8,
-    pub(crate) address: u8,
-    pub(crate) send_failure: u8,
-    pub(crate) peer_error: u8,
-    pub(crate) shutdown: u8,
-    pub(crate) partial_delivery: u8,
-    pub(crate) adaptation_layer: u8,
-    pub(crate) authentication: u8,
-    pub(crate) sender_dry: u8,
-    pub(crate) stream_reset: u8,
-    pub(crate) association_reset: u8,
-    pub(crate) stream_change: u8,
-    pub(crate) send_failure_event: u8,
+#[derive(Debug)]
+pub(crate) struct SctpSubscribeEvent {
+    pub(crate) assoc_id: SctpAssociationId,
+    pub(crate) event: SctpEvent,
+    pub(crate) on: bool,
 }

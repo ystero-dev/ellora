@@ -18,7 +18,7 @@ pub(crate) static SCTP_GET_LOCAL_ADDRS: libc::c_int = 109;
 pub(crate) static SCTP_SOCKOPT_CONNECTX: libc::c_int = 110;
 
 // To subscribe to SCTP Events
-pub(crate) static SCTP_EVENTS: libc::c_int = 11;
+pub(crate) static SCTP_EVENT: libc::c_int = 127;
 
 //
 pub(crate) static MSG_NOTIFICATION: u32 = 0x8000;

@@ -5,7 +5,7 @@ use std::os::unix::io::RawFd;
 
 use crate::{
     BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent, SctpListener,
-    SocketToAssociation,
+    SocketToAssociation, SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -75,8 +75,21 @@ impl SctpSocket {
     }
 
     /// Event Subscription for the socket.
-    pub fn sctp_subscribe_events(&self, events: &[SctpEvent]) -> std::io::Result<()> {
-        sctp_events_subscribe_internal(self.inner, events)
+    pub fn sctp_subscribe_event(
+        &self,
+        event: SctpEvent,
+        assoc_id: SubscribeEventAssocId,
+    ) -> std::io::Result<()> {
+        sctp_subscribe_event_internal(self.inner, event, assoc_id, true)
+    }
+
+    /// Event Unsubscription for the socket.
+    pub fn sctp_unsubscribe_event(
+        &self,
+        event: SctpEvent,
+        assoc_id: SubscribeEventAssocId,
+    ) -> std::io::Result<()> {
+        sctp_subscribe_event_internal(self.inner, event, assoc_id, false)
     }
 }
 

@@ -5,7 +5,7 @@ use std::os::unix::io::RawFd;
 
 #[allow(unused)]
 use crate::internal::*;
-use crate::{types::SctpAssociationId, BindxFlags};
+use crate::{BindxFlags, SctpAssociationId, SctpEvent, SubscribeEventAssocId};
 
 /// A structure representing a Connected SCTP socket.
 ///
@@ -54,6 +54,24 @@ impl SctpConnectedSocket {
     /// Get Local addresses for the association. See section 9.5 RFC 6458.
     pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getladdrs_internal(self.inner, assoc_id)
+    }
+
+    /// Event Subscription for the socket.
+    pub fn sctp_subscribe_event(
+        &self,
+        event: SctpEvent,
+        assoc_id: SubscribeEventAssocId,
+    ) -> std::io::Result<()> {
+        sctp_subscribe_event_internal(self.inner, event, assoc_id, true)
+    }
+
+    /// Event Unsubscription for the socket.
+    pub fn sctp_unsubscribe_event(
+        &self,
+        event: SctpEvent,
+        assoc_id: SubscribeEventAssocId,
+    ) -> std::io::Result<()> {
+        sctp_subscribe_event_internal(self.inner, event, assoc_id, false)
     }
 }
 

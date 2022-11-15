@@ -7,6 +7,7 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use crate::internal::*;
 use crate::{
     types::SctpAssociationId, BindxFlags, SctpConnectedSocket, SctpEvent, SctpNotificationOrData,
+    SubscribeEventAssocId,
 };
 
 /// A structure representing a socket that is listening for incoming SCTP Connections.
@@ -73,10 +74,23 @@ impl SctpListener {
     }
 
     /// Event Subscription for the socket.
-    pub fn sctp_subscribe_events(&self, events: &[SctpEvent]) -> std::io::Result<()> {
-        sctp_events_subscribe_internal(self.inner, events)
+    pub fn sctp_subscribe_event(
+        &self,
+        event: SctpEvent,
+        assoc_id: SubscribeEventAssocId,
+    ) -> std::io::Result<()> {
+        sctp_subscribe_event_internal(self.inner, event, assoc_id, true)
     }
-    //
+
+    /// Event Unsubscription for the socket.
+    pub fn sctp_unsubscribe_event(
+        &self,
+        event: SctpEvent,
+        assoc_id: SubscribeEventAssocId,
+    ) -> std::io::Result<()> {
+        sctp_subscribe_event_internal(self.inner, event, assoc_id, false)
+    }
+
     // functions not part of public APIs
     pub(crate) fn from_raw_fd(fd: RawFd) -> Self {
         Self { inner: fd }
@@ -143,7 +157,8 @@ mod tests {
         let (listener, bindaddr) =
             create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
 
-        let result = listener.sctp_subscribe_events(&[SctpEvent::Association, SctpEvent::DataIo]);
+        let result =
+            listener.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Future);
         assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
         let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
@@ -159,7 +174,8 @@ mod tests {
         let (listener, bindaddr) =
             create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
-        let result = listener.sctp_subscribe_events(&[SctpEvent::Association, SctpEvent::DataIo]);
+        let result =
+            listener.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Future);
         assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
         let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);

@@ -9,10 +9,10 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
-use crate::types::internal::{SctpEventSubscribe, SctpGetAddrs};
+use crate::types::internal::{SctpGetAddrs, SctpSubscribeEvent};
 use crate::{
     AssociationChange, BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent,
-    SctpNotification, SctpNotificationOrData,
+    SctpNotification, SctpNotificationOrData, SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -380,40 +380,25 @@ fn notification_from_message(data: &[u8]) -> SctpNotification {
 }
 
 // Implementation of Event Subscription
-pub(crate) fn sctp_events_subscribe_internal(
+pub(crate) fn sctp_subscribe_event_internal(
     fd: RawFd,
-    events: &[SctpEvent],
+    event: SctpEvent,
+    assoc_id: SubscribeEventAssocId,
+    on: bool,
 ) -> std::io::Result<()> {
-    let mut subscriber = SctpEventSubscribe::default();
+    let subscriber = SctpSubscribeEvent {
+        event,
+        assoc_id: assoc_id.into(),
+        on,
+    };
 
-    for ev in events {
-        match ev {
-            SctpEvent::DataIo => subscriber.data_io = 1,
-            SctpEvent::Association => subscriber.association = 1,
-            SctpEvent::Address => subscriber.address = 1,
-            SctpEvent::SendFailure => subscriber.send_failure = 1,
-            SctpEvent::PeerError => subscriber.peer_error = 1,
-            SctpEvent::Shutdown => subscriber.shutdown = 1,
-            SctpEvent::PartialDelivery => subscriber.partial_delivery = 1,
-            SctpEvent::AdaptationLayer => subscriber.adaptation_layer = 1,
-            SctpEvent::Authentication => subscriber.authentication = 1,
-            SctpEvent::SenderDry => subscriber.sender_dry = 1,
-            SctpEvent::StreamReset => subscriber.stream_reset = 1,
-            SctpEvent::AssociationReset => subscriber.association_reset = 1,
-            SctpEvent::StreamChange => subscriber.stream_change = 1,
-            SctpEvent::SendFailureEvent => subscriber.send_failure_event = 1,
-        }
-    }
-
-    eprintln!("subscriber: {:#?}", subscriber);
-    // safety:
     unsafe {
         let result = libc::setsockopt(
             fd,
             SOL_SCTP,
-            SCTP_EVENTS,
+            SCTP_EVENT,
             &subscriber as *const _ as *const libc::c_void,
-            std::mem::size_of::<SctpEventSubscribe>()
+            std::mem::size_of::<SctpSubscribeEvent>()
                 .try_into()
                 .unwrap(),
         );
