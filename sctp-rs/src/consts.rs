@@ -32,3 +32,6 @@ pub(crate) const SCTP_COMM_LOST: u16 = 1;
 pub(crate) const SCTP_RESTART: u16 = 2;
 pub(crate) const SCTP_SHUTDOWN_COMP: u16 = 3;
 pub(crate) const SCTP_CANT_STR_ASSOC: u16 = 4;
+
+// Init Message used for `setsockopt`
+pub(crate) const SCTP_INITMSG: libc::c_int = 2;

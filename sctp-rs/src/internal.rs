@@ -9,7 +9,7 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
-use crate::types::internal::{SctpGetAddrs, SctpSubscribeEvent};
+use crate::types::internal::{SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
 use crate::{
     AssociationChange, BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent,
     SctpNotification, SctpNotificationOrData, SubscribeEventAssocId,
@@ -401,6 +401,37 @@ pub(crate) fn sctp_subscribe_event_internal(
             std::mem::size_of::<SctpSubscribeEvent>()
                 .try_into()
                 .unwrap(),
+        );
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+// Setup initiation parameters
+pub(crate) fn sctp_setup_init_params_internal(
+    fd: RawFd,
+    ostreams: u16,
+    istreams: u16,
+    retries: u16,
+    timeout: u16,
+) -> std::io::Result<()> {
+    let init_params = SctpInitMsg {
+        ostreams,
+        istreams,
+        retries,
+        timeout,
+    };
+
+    unsafe {
+        let result = libc::setsockopt(
+            fd,
+            SOL_SCTP,
+            SCTP_INITMSG,
+            &init_params as *const _ as *const libc::c_void,
+            std::mem::size_of::<SctpInitMsg>().try_into().unwrap(),
         );
         if result < 0 {
             Err(std::io::Error::last_os_error())

@@ -1,4 +1,8 @@
-// Structures below are used by the implementation details and are not part of the public API.
+//! Types used by different SCTP Internal APIs
+//!
+//! Most of these types are 'C' like `struct`s that are passed as parameters as a part of
+//! performing certain SCTP related functionality using `libc::getsockopt` or `libc::setsockopt`.
+//! Structures below are used by the implementation details and are not part of the public API.
 
 use crate::{SctpAssociationId, SctpEvent};
 
@@ -32,10 +36,21 @@ pub(crate) struct SctpGetAddrs {
     pub(crate) addrs: u8,
 }
 
+// Structure used for Subscribing to Http Events
 #[repr(C)]
 #[derive(Debug)]
 pub(crate) struct SctpSubscribeEvent {
     pub(crate) assoc_id: SctpAssociationId,
     pub(crate) event: SctpEvent,
     pub(crate) on: bool,
+}
+
+// SCTP Initiation Structure (See Section 5.3.1 of RFC 6458)
+#[repr(C)]
+#[derive(Debug)]
+pub(crate) struct SctpInitMsg {
+    pub(crate) ostreams: u16,
+    pub(crate) istreams: u16,
+    pub(crate) retries: u16,
+    pub(crate) timeout: u16, // in miliseconds
 }

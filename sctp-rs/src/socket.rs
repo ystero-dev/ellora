@@ -91,6 +91,17 @@ impl SctpSocket {
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(self.inner, event, assoc_id, false)
     }
+
+    /// Setup Initiation Message Params
+    pub fn sctp_setup_init_params(
+        &self,
+        ostreams: u16,
+        istreams: u16,
+        retries: u16,
+        timeout: u16,
+    ) -> std::io::Result<()> {
+        sctp_setup_init_params_internal(self.inner, ostreams, istreams, retries, timeout)
+    }
 }
 
 #[cfg(test)]

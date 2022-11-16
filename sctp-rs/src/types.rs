@@ -1,7 +1,4 @@
-//! Types used by different SCTP Internal APIs
-//!
-//! Most of these types are 'C' like `struct`s that are passed as parameters as a part of
-//! performing certain SCTP related functionality using `libc::getsockopt` or `libc::setsockopt`.
+//! Types used by the Public APIs
 
 /// SCTP Association ID Type
 pub type SctpAssociationId = i32;
@@ -45,6 +42,10 @@ pub enum SctpNotification {
     Unsupported,
 }
 
+/// AssociationChange: Structure returned as notification for Association Change.
+///
+/// To subscribe to this notification type, An application should call `sctp_subscribe_event` using
+/// the [`SctpEvent`] type as [`SctpEvent::Association`].
 #[repr(C)]
 #[derive(Debug)]
 pub struct AssociationChange {
@@ -61,7 +62,7 @@ pub struct AssociationChange {
 
 /// SctpEvent: Used for Subscribing for SCTP Events
 ///
-/// See [`sctp_subscribe_events`][`crate::SctpListener::sctp_subscribe_events`] for the usage.
+/// See [`sctp_subscribe_events`][`crate::SctpListener::sctp_subscribe_event`] for the usage.
 #[repr(u16)]
 #[derive(Debug)]
 pub enum SctpEvent {
