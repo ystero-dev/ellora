@@ -12,7 +12,7 @@ use os_socketaddr::OsSocketAddr;
 use crate::types::internal::{SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
 use crate::{
     AssociationChange, BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent,
-    SctpNotification, SctpNotificationOrData, SubscribeEventAssocId,
+    SctpNotification, SctpNotificationOrData, SctpReceivedData, SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -348,7 +348,11 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
                     notification_from_message(&recv_buffer),
                 ))
             } else {
-                Ok(SctpNotificationOrData::Data(recv_buffer))
+                Ok(SctpNotificationOrData::Data(SctpReceivedData {
+                    data: recv_buffer,
+                    rcv_info: None,
+                    nxt_info: None,
+                }))
             }
         }
     }
@@ -433,6 +437,50 @@ pub(crate) fn sctp_setup_init_params_internal(
             &init_params as *const _ as *const libc::c_void,
             std::mem::size_of::<SctpInitMsg>().try_into().unwrap(),
         );
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+// Enable/Disable reception of `SctpRcvInfo` actual call.
+pub(crate) fn request_rcvinfo_internal(fd: RawFd, on: bool) -> std::io::Result<()> {
+    let enable: libc::socklen_t = if on { 1 } else { 0 };
+    let enable_size = std::mem::size_of::<libc::socklen_t>();
+
+    unsafe {
+        let result = libc::setsockopt(
+            fd,
+            SOL_SCTP,
+            SCTP_RECVRCVINFO,
+            &enable as *const _ as *const libc::c_void,
+            enable_size.try_into().unwrap(),
+        );
+
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+// Enable/Disable reception of `SctpNxtInfo` actual call.
+pub(crate) fn request_nxtinfo_internal(fd: RawFd, on: bool) -> std::io::Result<()> {
+    let enable: libc::socklen_t = if on { 1 } else { 0 };
+    let enable_size = std::mem::size_of::<libc::socklen_t>();
+
+    unsafe {
+        let result = libc::setsockopt(
+            fd,
+            SOL_SCTP,
+            SCTP_RECVRCVINFO,
+            &enable as *const _ as *const libc::c_void,
+            enable_size.try_into().unwrap(),
+        );
+
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {

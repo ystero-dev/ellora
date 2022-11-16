@@ -35,3 +35,7 @@ pub(crate) const SCTP_CANT_STR_ASSOC: u16 = 4;
 
 // Init Message used for `setsockopt`
 pub(crate) const SCTP_INITMSG: libc::c_int = 2;
+
+// Receving RCVINFO and NXTINFO
+pub(crate) const SCTP_RECVRCVINFO: libc::c_int = 32;
+pub(crate) const SCTP_RECVNXTINFO: libc::c_int = 33;

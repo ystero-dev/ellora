@@ -30,7 +30,41 @@ pub enum SctpNotificationOrData {
     Notification(SctpNotification),
 
     /// SCTP Data Received by an association.
-    Data(Vec<u8>),
+    Data(SctpReceivedData),
+}
+
+/// Structure Representing SCTP Received Data.
+///
+/// This structure is returned by the `sctp_recv` API call. This contains in addition to 'received'
+/// data, any ancillary data that is received during the underlying system call.
+#[derive(Debug)]
+pub struct SctpReceivedData {
+    pub data: Vec<u8>,
+    pub rcv_info: Option<SctpRcvInfo>,
+    pub nxt_info: Option<SctpNxtInfo>,
+}
+
+/// Structure Representing Ancillary Receive Information (See Section 5.3.5 of RFC 6458)
+#[derive(Debug)]
+pub struct SctpRcvInfo {
+    sid: u16,
+    ssn: u16,
+    flags: u16,
+    ppid: u32,
+    tsn: u32,
+    cumtsn: u32,
+    context: u32,
+    assoc_id: SctpAssociationId,
+}
+
+/// Structure representing Ancillary next information (See Section 5.3.5)
+#[derive(Debug)]
+pub struct SctpNxtInfo {
+    sid: u16,
+    flags: u16,
+    ppid: u32,
+    lenghtn: u32,
+    assoc_id: SctpAssociationId,
 }
 
 #[derive(Debug)]

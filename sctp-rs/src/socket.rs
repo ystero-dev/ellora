@@ -102,6 +102,16 @@ impl SctpSocket {
     ) -> std::io::Result<()> {
         sctp_setup_init_params_internal(self.inner, ostreams, istreams, retries, timeout)
     }
+
+    /// Request to receive `SctpRcvInfo` ancillary data
+    pub fn sctp_request_rcvinfo(&self, on: bool) -> std::io::Result<()> {
+        request_rcvinfo_internal(self.inner, on)
+    }
+
+    /// Request to receive `SctpNxtInfo` ancillary data
+    pub fn sctp_request_nxtinfo(&self, on: bool) -> std::io::Result<()> {
+        request_nxtinfo_internal(self.inner, on)
+    }
 }
 
 #[cfg(test)]
