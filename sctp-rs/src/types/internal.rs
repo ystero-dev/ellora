@@ -36,7 +36,7 @@ pub(crate) struct SctpGetAddrs {
     pub(crate) addrs: u8,
 }
 
-// Structure used for Subscribing to Http Events
+// Structure used for Subscribing to SCTP Events
 #[repr(C)]
 #[derive(Debug)]
 pub(crate) struct SctpSubscribeEvent {

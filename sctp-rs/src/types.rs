@@ -45,7 +45,7 @@ pub struct SctpReceivedData {
 }
 
 /// Structure Representing Ancillary Receive Information (See Section 5.3.5 of RFC 6458)
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SctpRcvInfo {
     sid: u16,
     ssn: u16,
@@ -58,7 +58,7 @@ pub struct SctpRcvInfo {
 }
 
 /// Structure representing Ancillary next information (See Section 5.3.5)
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SctpNxtInfo {
     sid: u16,
     flags: u16,

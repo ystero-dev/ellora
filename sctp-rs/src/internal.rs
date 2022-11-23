@@ -12,7 +12,8 @@ use os_socketaddr::OsSocketAddr;
 use crate::types::internal::{SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
 use crate::{
     AssociationChange, BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent,
-    SctpNotification, SctpNotificationOrData, SctpReceivedData, SubscribeEventAssocId,
+    SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo, SctpReceivedData,
+    SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -320,14 +321,17 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
         iov_len: recv_buffer.len(),
     };
 
+    let msg_control_size = std::mem::size_of::<SctpRcvInfo>() + std::mem::size_of::<SctpNxtInfo>();
+    let mut msg_control = vec![0; msg_control_size];
+
     let mut from_buffer = vec![0u8; 256];
     let mut recvmsg_header = libc::msghdr {
         msg_name: from_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
         msg_namelen: from_buffer.len() as u32,
         msg_iov: &mut recv_iov,
         msg_iovlen: 1,
-        msg_control: std::ptr::null::<libc::c_int>() as *mut libc::c_void,
-        msg_controllen: 0,
+        msg_control: msg_control.as_mut_ptr() as *mut _ as *mut libc::c_void,
+        msg_controllen: msg_control_size as usize,
         msg_flags: 0,
     };
 
@@ -339,19 +343,57 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
             Err(std::io::Error::last_os_error())
         } else {
             let received_flags: u32 = recvmsg_header.msg_flags.try_into().unwrap();
-            eprintln!("received_flags: {:x}", received_flags);
             recv_buffer.truncate(result as usize);
-            eprintln!("buffer: {:x?}", recv_buffer);
 
             if received_flags & MSG_NOTIFICATION != 0 {
                 Ok(SctpNotificationOrData::Notification(
                     notification_from_message(&recv_buffer),
                 ))
             } else {
+                let mut rcv_info = None;
+                let mut nxt_info = None;
+                let mut cmsghdr =
+                    libc::CMSG_FIRSTHDR(msg_control.as_mut_ptr() as *mut _ as *mut libc::msghdr);
+                loop {
+                    if cmsghdr == std::ptr::null_mut::<libc::cmsghdr>() {
+                        break;
+                    }
+                    if (*cmsghdr).cmsg_level != libc::IPPROTO_SCTP {
+                        continue;
+                    }
+
+                    if (*cmsghdr).cmsg_type == SctpCmsgType::SctpRcvInfo as i32 {
+                        let mut recv_info_internal = SctpRcvInfo::default();
+                        let cmsg_data = libc::CMSG_DATA(cmsghdr);
+                        std::ptr::copy(
+                            &mut recv_info_internal as *mut _ as *mut u8,
+                            cmsg_data,
+                            std::mem::size_of::<SctpRcvInfo>(),
+                        );
+                        rcv_info = Some(recv_info_internal);
+                    }
+
+                    if (*cmsghdr).cmsg_type == SctpCmsgType::SctpNxtInfo as i32 {
+                        let mut nxt_info_internal = SctpNxtInfo::default();
+                        let cmsg_data = libc::CMSG_DATA(cmsghdr);
+                        std::ptr::copy(
+                            &mut nxt_info_internal as *mut _ as *mut u8,
+                            cmsg_data,
+                            std::mem::size_of::<SctpNxtInfo>(),
+                        );
+                        nxt_info = Some(nxt_info_internal);
+                    }
+
+                    cmsghdr = libc::CMSG_NXTHDR(
+                        msg_control.as_mut_ptr() as *mut _ as *mut libc::msghdr,
+                        cmsghdr,
+                    );
+                }
+
                 Ok(SctpNotificationOrData::Data(SctpReceivedData {
                     data: recv_buffer,
-                    rcv_info: None,
-                    nxt_info: None,
+                    rcv_info,
+                    nxt_info,
                 }))
             }
         }
