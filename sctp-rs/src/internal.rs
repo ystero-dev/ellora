@@ -13,7 +13,7 @@ use crate::types::internal::{SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
 use crate::{
     AssociationChange, BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent,
     SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo, SctpReceivedData,
-    SubscribeEventAssocId,
+    SctpSendData, SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -391,11 +391,52 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
                 }
 
                 Ok(SctpNotificationOrData::Data(SctpReceivedData {
-                    data: recv_buffer,
+                    payload: recv_buffer,
                     rcv_info,
                     nxt_info,
                 }))
             }
+        }
+    }
+}
+
+// Implementation of the Send side for SCTP.
+pub(crate) fn sctp_sendmsg_internal(
+    fd: RawFd,
+    to: Option<SocketAddr>,
+    data: SctpSendData,
+) -> std::io::Result<()> {
+    let mut send_iov = libc::iovec {
+        iov_base: data.payload.as_ptr() as *mut libc::c_void,
+        iov_len: data.payload.len(),
+    };
+
+    let (to_buffer, to_buffer_len) = if let Some(addr) = to {
+        let os_sockaddr: OsSocketAddr = addr.into();
+        (
+            os_sockaddr.as_ptr() as *mut libc::c_void,
+            os_sockaddr.capacity(),
+        )
+    } else {
+        (std::ptr::null::<OsSocketAddr>() as *mut libc::c_void, 0)
+    };
+    let mut sendmsg_header = libc::msghdr {
+        msg_name: to_buffer,
+        msg_namelen: to_buffer_len,
+        msg_iov: &mut send_iov,
+        msg_iovlen: 1,
+        msg_control: std::ptr::null::<libc::cmsghdr>() as *mut libc::c_void,
+        msg_controllen: 0,
+        msg_flags: 0,
+    };
+    // Safety: sendmsg_hdr is valid in the current scope.
+    unsafe {
+        let flags = 0 as libc::c_int;
+        let result = libc::sendmsg(fd, &mut sendmsg_header as *mut libc::msghdr, flags);
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
         }
     }
 }

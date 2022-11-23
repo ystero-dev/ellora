@@ -5,7 +5,10 @@ use std::os::unix::io::RawFd;
 
 #[allow(unused)]
 use crate::internal::*;
-use crate::{BindxFlags, SctpAssociationId, SctpEvent, SubscribeEventAssocId};
+use crate::{
+    BindxFlags, SctpAssociationId, SctpEvent, SctpNotificationOrData, SctpSendData,
+    SubscribeEventAssocId,
+};
 
 /// A structure representing a Connected SCTP socket.
 ///
@@ -54,6 +57,20 @@ impl SctpConnectedSocket {
     /// Get Local addresses for the association. See section 9.5 RFC 6458.
     pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getladdrs_internal(self.inner, assoc_id)
+    }
+
+    /// Receive Data or Notification from the listening socket.
+    ///
+    /// This function returns either a notification or the data.
+    pub fn sctp_recv(&self) -> std::io::Result<SctpNotificationOrData> {
+        sctp_recvmsg_internal(self.inner)
+    }
+
+    /// Send Data and Anciliary data if any on the SCTP Socket.
+    ///
+    /// This function returns the result of Sending data on the socket.
+    pub fn sctp_send(&self, data: SctpSendData) -> std::io::Result<()> {
+        sctp_sendmsg_internal(self.inner, None, data)
     }
 
     /// Event Subscription for the socket.

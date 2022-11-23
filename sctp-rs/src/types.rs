@@ -39,32 +39,51 @@ pub enum SctpNotificationOrData {
 /// data, any ancillary data that is received during the underlying system call.
 #[derive(Debug)]
 pub struct SctpReceivedData {
-    pub data: Vec<u8>,
+    pub payload: Vec<u8>,
     pub rcv_info: Option<SctpRcvInfo>,
     pub nxt_info: Option<SctpNxtInfo>,
+}
+
+/// Structure Represnting Data to be Sent.
+///
+/// This structure contains actual paylod and optional ancillary data.
+#[derive(Debug)]
+pub struct SctpSendData {
+    pub payload: Vec<u8>,
+    pub snd_info: Option<SctpSendInfo>,
+}
+
+/// Structure representing Ancilliary Send Information (See Section 5.3.4 of RFC 6458)
+#[derive(Debug, Default)]
+pub struct SctpSendInfo {
+    pub sid: u16,
+    pub flags: u16,
+    pub ppid: u32,
+    pub context: u32,
+    pub assoc_id: SctpAssociationId,
 }
 
 /// Structure Representing Ancillary Receive Information (See Section 5.3.5 of RFC 6458)
 #[derive(Debug, Default)]
 pub struct SctpRcvInfo {
-    sid: u16,
-    ssn: u16,
-    flags: u16,
-    ppid: u32,
-    tsn: u32,
-    cumtsn: u32,
-    context: u32,
-    assoc_id: SctpAssociationId,
+    pub sid: u16,
+    pub ssn: u16,
+    pub flags: u16,
+    pub ppid: u32,
+    pub tsn: u32,
+    pub cumtsn: u32,
+    pub context: u32,
+    pub assoc_id: SctpAssociationId,
 }
 
 /// Structure representing Ancillary next information (See Section 5.3.5)
 #[derive(Debug, Default)]
 pub struct SctpNxtInfo {
-    sid: u16,
-    flags: u16,
-    ppid: u32,
-    lenghtn: u32,
-    assoc_id: SctpAssociationId,
+    pub sid: u16,
+    pub flags: u16,
+    pub ppid: u32,
+    pub length: u32,
+    pub assoc_id: SctpAssociationId,
 }
 
 #[derive(Debug)]

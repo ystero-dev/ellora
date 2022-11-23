@@ -7,7 +7,7 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use crate::internal::*;
 use crate::{
     types::SctpAssociationId, BindxFlags, SctpConnectedSocket, SctpEvent, SctpNotificationOrData,
-    SubscribeEventAssocId,
+    SctpSendData, SubscribeEventAssocId,
 };
 
 /// A structure representing a socket that is listening for incoming SCTP Connections.
@@ -71,6 +71,13 @@ impl SctpListener {
     /// This function returns either a notification or the data.
     pub fn sctp_recv(&self) -> std::io::Result<SctpNotificationOrData> {
         sctp_recvmsg_internal(self.inner)
+    }
+
+    /// Send Data and Anciliary data if any on the SCTP Socket.
+    ///
+    /// This function returns the result of Sending data on the socket.
+    pub fn sctp_send(&self, to: SocketAddr, data: SctpSendData) -> std::io::Result<()> {
+        sctp_sendmsg_internal(self.inner, Some(to), data)
     }
 
     /// Event Subscription for the socket.
