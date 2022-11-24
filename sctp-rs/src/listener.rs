@@ -21,7 +21,7 @@ pub struct SctpListener {
 }
 
 impl SctpListener {
-    /// Accept on a given socket (valid only for `OneToOne` type sockets
+    /// Accept on a given socket (valid only for `OneToOne` type sockets).
     pub fn accept(&self) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
         accept_internal(self.inner)
     }
@@ -29,11 +29,6 @@ impl SctpListener {
     /// Shutdown on the socket
     pub fn shutdown(&self, how: std::net::Shutdown) -> std::io::Result<()> {
         shutdown_internal(self.inner, how)
-    }
-
-    /// For a `OneToMany` this implicitly accepts (So should return a `SctpConnectedSocket`.)
-    pub fn recvmsg(&self) -> std::io::Result<()> {
-        unimplemented!();
     }
 
     /// Binds to one or more local addresses. See: Section 9.1 RFC 6458
