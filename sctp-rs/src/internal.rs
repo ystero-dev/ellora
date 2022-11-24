@@ -11,7 +11,7 @@ use os_socketaddr::OsSocketAddr;
 
 use crate::types::internal::{SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
 use crate::{
-    AssociationChange, BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent,
+    AssociationChange, BindxFlags, SctpAssociationId, SctpCmsgType, SctpConnectedSocket, SctpEvent,
     SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo, SctpReceivedData,
     SctpSendData, SubscribeEventAssocId,
 };

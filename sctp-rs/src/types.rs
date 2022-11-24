@@ -157,4 +157,28 @@ impl From<SubscribeEventAssocId> for SctpAssociationId {
     }
 }
 
+/// Association Change States
+#[repr(u16)]
+pub enum SctpAssocChangeState {
+    SctpCommUp = 0,
+    SctpCommLost,
+    SctpRestart,
+    SctpShutdownComplete,
+    SctpCantStartAssoc,
+}
+
+/// Constants related to `enum sctp_cmsg_type`
+#[repr(i32)]
+pub enum SctpCmsgType {
+    SctpInit = 0,
+    SctpSndRcv,
+    SctpSndInfo,
+    SctpRcvInfo,
+    SctpNxtInfo,
+    SctpPrInfo,
+    SctpAuthInfo,
+    SctpDstAddrV4,
+    SctpDstAddrV6,
+}
+
 pub(crate) mod internal;

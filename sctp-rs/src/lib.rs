@@ -33,7 +33,7 @@ mod types;
 
 #[doc(inline)]
 pub use types::{
-    AssociationChange, BindxFlags, SctpAssociationId, SctpEvent, SctpNotification,
-    SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo, SctpReceivedData, SctpSendData,
-    SocketToAssociation, SubscribeEventAssocId,
+    AssociationChange, BindxFlags, SctpAssocChangeState, SctpAssociationId, SctpCmsgType,
+    SctpEvent, SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo,
+    SctpReceivedData, SctpSendData, SocketToAssociation, SubscribeEventAssocId,
 };

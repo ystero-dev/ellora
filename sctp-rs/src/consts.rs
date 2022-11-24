@@ -26,30 +26,9 @@ pub(crate) static MSG_NOTIFICATION: u32 = 0x8000;
 // Notification Types Constants
 pub(crate) const SCTP_ASSOC_CHANGE: u16 = (1 << 15) | 0x0001;
 
-// Association Change States
-pub(crate) const SCTP_COMM_UP: u16 = 0;
-pub(crate) const SCTP_COMM_LOST: u16 = 1;
-pub(crate) const SCTP_RESTART: u16 = 2;
-pub(crate) const SCTP_SHUTDOWN_COMP: u16 = 3;
-pub(crate) const SCTP_CANT_STR_ASSOC: u16 = 4;
-
 // Init Message used for `setsockopt`
 pub(crate) const SCTP_INITMSG: libc::c_int = 2;
 
 // Receving RCVINFO and NXTINFO
 pub(crate) const SCTP_RECVRCVINFO: libc::c_int = 32;
 pub(crate) const SCTP_RECVNXTINFO: libc::c_int = 33;
-
-// Constants related to `enum sctp_cmsg_type`
-#[repr(i32)]
-pub(crate) enum SctpCmsgType {
-    SctpInit = 0,
-    SctpSndRcv,
-    SctpSndInfo,
-    SctpRcvInfo,
-    SctpNxtInfo,
-    SctpPrInfo,
-    SctpAuthInfo,
-    SctpDstAddrV4,
-    SctpDstAddrV6,
-}
