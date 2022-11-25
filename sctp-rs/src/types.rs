@@ -24,7 +24,7 @@ pub enum SocketToAssociation {
 }
 
 /// SctpNotificationOrData: A type returned by a `sctp_recvv` call.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SctpNotificationOrData {
     /// SCTP Notification received by an `sctp_recvv` call
     Notification(SctpNotification),
@@ -37,7 +37,7 @@ pub enum SctpNotificationOrData {
 ///
 /// This structure is returned by the `sctp_recv` API call. This contains in addition to 'received'
 /// data, any ancillary data that is received during the underlying system call.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SctpReceivedData {
     pub payload: Vec<u8>,
     pub rcv_info: Option<SctpRcvInfo>,
@@ -47,14 +47,14 @@ pub struct SctpReceivedData {
 /// Structure Represnting Data to be Sent.
 ///
 /// This structure contains actual paylod and optional ancillary data.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SctpSendData {
     pub payload: Vec<u8>,
     pub snd_info: Option<SctpSendInfo>,
 }
 
 /// Structure representing Ancilliary Send Information (See Section 5.3.4 of RFC 6458)
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SctpSendInfo {
     pub sid: u16,
     pub flags: u16,
@@ -64,7 +64,8 @@ pub struct SctpSendInfo {
 }
 
 /// Structure Representing Ancillary Receive Information (See Section 5.3.5 of RFC 6458)
-#[derive(Debug, Default)]
+#[repr(C)]
+#[derive(Debug, Default, Clone)]
 pub struct SctpRcvInfo {
     pub sid: u16,
     pub ssn: u16,
@@ -77,7 +78,8 @@ pub struct SctpRcvInfo {
 }
 
 /// Structure representing Ancillary next information (See Section 5.3.5)
-#[derive(Debug, Default)]
+#[repr(C)]
+#[derive(Debug, Default, Clone)]
 pub struct SctpNxtInfo {
     pub sid: u16,
     pub flags: u16,
@@ -86,7 +88,7 @@ pub struct SctpNxtInfo {
     pub assoc_id: SctpAssociationId,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SctpNotification {
     /// Association Change Notification. See Section 6.1.1 of RFC 6458
     AssociationChange(AssociationChange),
@@ -100,7 +102,7 @@ pub enum SctpNotification {
 /// To subscribe to this notification type, An application should call `sctp_subscribe_event` using
 /// the [`SctpEvent`] type as [`SctpEvent::Association`].
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AssociationChange {
     pub assoc_type: u16,
     pub flags: u16,
@@ -117,7 +119,7 @@ pub struct AssociationChange {
 ///
 /// See [`sctp_subscribe_events`][`crate::SctpListener::sctp_subscribe_event`] for the usage.
 #[repr(u16)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SctpEvent {
     DataIo = (1 << 15),
     Association,

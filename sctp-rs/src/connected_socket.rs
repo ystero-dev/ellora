@@ -90,6 +90,16 @@ impl SctpConnectedSocket {
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(self.inner, event, assoc_id, false)
     }
+
+    /// Request to receive `SctpRcvInfo` ancillary data
+    pub fn sctp_request_rcvinfo(&self, on: bool) -> std::io::Result<()> {
+        request_rcvinfo_internal(self.inner, on)
+    }
+
+    /// Request to receive `SctpNxtInfo` ancillary data
+    pub fn sctp_request_nxtinfo(&self, on: bool) -> std::io::Result<()> {
+        request_nxtinfo_internal(self.inner, on)
+    }
 }
 
 impl Drop for SctpConnectedSocket {

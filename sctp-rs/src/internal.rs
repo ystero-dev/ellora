@@ -161,7 +161,6 @@ fn sctp_getaddrs_internal(
     // to `getsockopt` would return an error, thus the memory won't be overwritten.
     unsafe {
         let mut getaddrs_ptr = addrs_buff.as_mut_ptr() as *mut SctpGetAddrs;
-        eprintln!("getaddrs_ptr: {:?}", getaddrs_ptr);
         (*getaddrs_ptr).assoc_id = assoc_id;
         let getaddrs_size_ptr = std::ptr::addr_of_mut!(getaddrs_size);
         let result = libc::getsockopt(
@@ -172,7 +171,6 @@ fn sctp_getaddrs_internal(
             getaddrs_size_ptr as *mut _ as *mut libc::socklen_t,
         );
         if result < 0 {
-            eprintln!("result: {}", result);
             Err(std::io::Error::last_os_error())
         } else {
             let mut peeraddrs = vec![];
@@ -180,8 +178,6 @@ fn sctp_getaddrs_internal(
             // The call succeeded, we need to do a lot of ugly pointer arithmetic, first we get the
             // number of addresses of the peer `addr_count` written to by the call to `getsockopt`.
             let addr_count = (*getaddrs_ptr).addr_count;
-            eprintln!("3:getaddrs: {:#?}", (*getaddrs_ptr));
-            eprintln!("3:getaddrs: {:x?}", addrs_buff);
 
             let mut sockaddr_ptr = std::ptr::addr_of!((*getaddrs_ptr).addrs);
             for _ in 0..addr_count {
@@ -321,8 +317,13 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
         iov_len: recv_buffer.len(),
     };
 
-    let msg_control_size = std::mem::size_of::<SctpRcvInfo>() + std::mem::size_of::<SctpNxtInfo>();
-    let mut msg_control = vec![0; msg_control_size];
+    // Safety: wrapper over `libc` call. the size of the structures are wellknown.
+    let msg_control_size = unsafe {
+        libc::CMSG_SPACE(
+            std::mem::size_of::<SctpRcvInfo>() as u32 + std::mem::size_of::<SctpNxtInfo>() as u32,
+        )
+    };
+    let mut msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
 
     let mut from_buffer = vec![0u8; 256];
     let mut recvmsg_header = libc::msghdr {
@@ -352,8 +353,7 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
             } else {
                 let mut rcv_info = None;
                 let mut nxt_info = None;
-                let mut cmsghdr =
-                    libc::CMSG_FIRSTHDR(msg_control.as_mut_ptr() as *mut _ as *mut libc::msghdr);
+                let mut cmsghdr = libc::CMSG_FIRSTHDR(&mut recvmsg_header as *mut libc::msghdr);
                 loop {
                     if cmsghdr.is_null() {
                         break;
@@ -366,8 +366,8 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
                         let mut recv_info_internal = SctpRcvInfo::default();
                         let cmsg_data = libc::CMSG_DATA(cmsghdr);
                         std::ptr::copy(
-                            &mut recv_info_internal as *mut _ as *mut u8,
                             cmsg_data,
+                            &mut recv_info_internal as *mut _ as *mut u8,
                             std::mem::size_of::<SctpRcvInfo>(),
                         );
                         rcv_info = Some(recv_info_internal);
@@ -377,8 +377,8 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
                         let mut nxt_info_internal = SctpNxtInfo::default();
                         let cmsg_data = libc::CMSG_DATA(cmsghdr);
                         std::ptr::copy(
-                            &mut nxt_info_internal as *mut _ as *mut u8,
                             cmsg_data,
+                            &mut nxt_info_internal as *mut _ as *mut u8,
                             std::mem::size_of::<SctpNxtInfo>(),
                         );
                         nxt_info = Some(nxt_info_internal);
@@ -559,7 +559,7 @@ pub(crate) fn request_nxtinfo_internal(fd: RawFd, on: bool) -> std::io::Result<(
         let result = libc::setsockopt(
             fd,
             SOL_SCTP,
-            SCTP_RECVRCVINFO,
+            SCTP_RECVNXTINFO,
             &enable as *const _ as *const libc::c_void,
             enable_size.try_into().unwrap(),
         );
