@@ -355,7 +355,7 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
                 let mut cmsghdr =
                     libc::CMSG_FIRSTHDR(msg_control.as_mut_ptr() as *mut _ as *mut libc::msghdr);
                 loop {
-                    if cmsghdr == std::ptr::null_mut::<libc::cmsghdr>() {
+                    if cmsghdr.is_null() {
                         break;
                     }
                     if (*cmsghdr).cmsg_level != libc::IPPROTO_SCTP {
@@ -530,7 +530,7 @@ pub(crate) fn sctp_setup_init_params_internal(
 
 // Enable/Disable reception of `SctpRcvInfo` actual call.
 pub(crate) fn request_rcvinfo_internal(fd: RawFd, on: bool) -> std::io::Result<()> {
-    let enable: libc::socklen_t = if on { 1 } else { 0 };
+    let enable: libc::socklen_t = u32::from(on);
     let enable_size = std::mem::size_of::<libc::socklen_t>();
 
     unsafe {
@@ -552,7 +552,7 @@ pub(crate) fn request_rcvinfo_internal(fd: RawFd, on: bool) -> std::io::Result<(
 
 // Enable/Disable reception of `SctpNxtInfo` actual call.
 pub(crate) fn request_nxtinfo_internal(fd: RawFd, on: bool) -> std::io::Result<()> {
-    let enable: libc::socklen_t = if on { 1 } else { 0 };
+    let enable: libc::socklen_t = u32::from(on);
     let enable_size = std::mem::size_of::<libc::socklen_t>();
 
     unsafe {
