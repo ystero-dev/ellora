@@ -13,7 +13,7 @@ use crate::types::internal::{SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
 use crate::{
     AssociationChange, BindxFlags, SctpAssociationId, SctpCmsgType, SctpConnectedSocket, SctpEvent,
     SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo, SctpReceivedData,
-    SctpSendData, SubscribeEventAssocId,
+    SctpSendData, SctpSendInfo, SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -420,13 +420,31 @@ pub(crate) fn sctp_sendmsg_internal(
     } else {
         (std::ptr::null::<OsSocketAddr>() as *mut libc::c_void, 0)
     };
+
+    // TODO: Support copy and other send info as well.
+    let (msg_control, msg_control_size) = if data.snd_info.is_some() {
+        // Safety: wrapper over `libc` call. the size of the structures are wellknown.
+        let msg_control_size =
+            unsafe { libc::CMSG_SPACE(std::mem::size_of::<SctpSendInfo>() as u32) };
+        let msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
+        (
+            msg_control.as_ptr() as *mut libc::c_void,
+            msg_control_size as usize,
+        )
+    } else {
+        (
+            std::ptr::null::<libc::cmsghdr>() as *mut libc::c_void,
+            0_usize,
+        )
+    };
+
     let mut sendmsg_header = libc::msghdr {
         msg_name: to_buffer,
         msg_namelen: to_buffer_len,
         msg_iov: &mut send_iov,
         msg_iovlen: 1,
-        msg_control: std::ptr::null::<libc::cmsghdr>() as *mut libc::c_void,
-        msg_controllen: 0,
+        msg_control: msg_control,
+        msg_controllen: msg_control_size,
         msg_flags: 0,
     };
     // Safety: sendmsg_hdr is valid in the current scope.
