@@ -3,6 +3,8 @@
 use std::net::SocketAddr;
 use std::os::unix::io::RawFd;
 
+use tokio::io::unix::AsyncFd;
+
 use crate::{
     BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent, SctpListener,
     SocketToAssociation, SubscribeEventAssocId,
@@ -17,21 +19,23 @@ use super::internal::*;
 /// get a [`crate::SctpConnectedSocket`] (This is like `TCPStream` but since this can have multiple
 /// associations, we are calling it a 'connected' socket).
 pub struct SctpSocket {
-    inner: RawFd,
+    inner: AsyncFd<RawFd>,
 }
 
 impl SctpSocket {
     /// Create a New Socket for IPV4
     pub fn new_v4(assoc: SocketToAssociation) -> Self {
         Self {
-            inner: sctp_socket_internal(libc::AF_INET, assoc),
+            inner: AsyncFd::new(sctp_socket_internal(libc::AF_INET, assoc))
+                .expect("AsyncFd get failed."),
         }
     }
 
     /// Create a New Socket for IPV6
     pub fn new_v6(assoc: crate::SocketToAssociation) -> Self {
         Self {
-            inner: sctp_socket_internal(libc::AF_INET6, assoc),
+            inner: AsyncFd::new(sctp_socket_internal(libc::AF_INET6, assoc))
+                .expect("AsyncFd get failed."),
         }
     }
 
@@ -42,24 +46,24 @@ impl SctpSocket {
 
     /// Listen on a given socket. Returns [`SctpListener`] consuming this structure.
     pub fn listen(self, backlog: i32) -> std::io::Result<SctpListener> {
-        sctp_listen_internal(self.inner, backlog)?;
+        sctp_listen_internal(*self.inner.get_ref(), backlog)?;
 
-        Ok(SctpListener::from_raw_fd(self.inner))
+        Ok(SctpListener::from_raw_fd(self.inner.into_inner())?)
     }
 
     /// Connect to a given Server
     pub async fn connect(
-        &self,
+        self,
         addr: SocketAddr,
     ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
-        sctp_connectx_internal(self.inner, &[addr])
+        sctp_connectx_internal(self.inner.into_inner(), &[addr])
     }
 
     /// Section 9.1 RFC 6458
     ///
     /// It is possible to call `sctp_bindx` on an  un'bound'.
     pub fn sctp_bindx(&self, addrs: &[SocketAddr], flags: BindxFlags) -> std::io::Result<()> {
-        sctp_bindx_internal(self.inner, addrs, flags)
+        sctp_bindx_internal(*self.inner.get_ref(), addrs, flags)
     }
 
     /// Connect to a multi-homed Peer. See Section 9.9 RFC 6458
@@ -71,7 +75,7 @@ impl SctpSocket {
         self,
         addrs: &[SocketAddr],
     ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
-        sctp_connectx_internal(self.inner, addrs)
+        sctp_connectx_internal(self.inner.into_inner(), addrs)
     }
 
     /// Event Subscription for the socket.
@@ -80,7 +84,7 @@ impl SctpSocket {
         event: SctpEvent,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
-        sctp_subscribe_event_internal(self.inner, event, assoc_id, true)
+        sctp_subscribe_event_internal(*self.inner.get_ref(), event, assoc_id, true)
     }
 
     /// Event Unsubscription for the socket.
@@ -89,7 +93,7 @@ impl SctpSocket {
         event: SctpEvent,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
-        sctp_subscribe_event_internal(self.inner, event, assoc_id, false)
+        sctp_subscribe_event_internal(*self.inner.get_ref(), event, assoc_id, false)
     }
 
     /// Setup Initiation Message Params
@@ -100,16 +104,16 @@ impl SctpSocket {
         retries: u16,
         timeout: u16,
     ) -> std::io::Result<()> {
-        sctp_setup_init_params_internal(self.inner, ostreams, istreams, retries, timeout)
+        sctp_setup_init_params_internal(*self.inner.get_ref(), ostreams, istreams, retries, timeout)
     }
 
     /// Request to receive `SctpRcvInfo` ancillary data
     pub fn sctp_request_rcvinfo(&self, on: bool) -> std::io::Result<()> {
-        request_rcvinfo_internal(self.inner, on)
+        request_rcvinfo_internal(*self.inner.get_ref(), on)
     }
 
     /// Request to receive `SctpNxtInfo` ancillary data
     pub fn sctp_request_nxtinfo(&self, on: bool) -> std::io::Result<()> {
-        request_nxtinfo_internal(self.inner, on)
+        request_nxtinfo_internal(*self.inner.get_ref(), on)
     }
 }

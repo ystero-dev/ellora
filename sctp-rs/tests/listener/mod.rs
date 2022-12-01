@@ -3,15 +3,18 @@ use sctp_rs::*;
 use std::net::SocketAddr;
 
 // Tests for `accept` API for Listening Socket.
-#[test]
-fn listening_one_2_one_listen_accept_success() {
+#[tokio::test]
+async fn listening_one_2_one_listen_accept_success() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
 
     let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+    eprintln!("1");
     let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+    eprintln!("2");
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
     let accept = listener.accept();
+    eprintln!("3");
     assert!(accept.is_ok(), "{:#?}", accept.err().unwrap());
 
     // Get Peer Address
@@ -20,8 +23,8 @@ fn listening_one_2_one_listen_accept_success() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 }
 
-#[test]
-fn listening_one_2_many_listen_accept_failure() {
+#[tokio::test]
+async fn listening_one_2_many_listen_accept_failure() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
     let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
@@ -36,8 +39,8 @@ fn listening_one_2_many_listen_accept_failure() {
 // TODO:
 
 // Test for `sctp_bindx` API for Listening Socket.
-#[test]
-fn listening_sctp_bindx_add_success() {
+#[tokio::test]
+async fn listening_sctp_bindx_add_success() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
 
     let bindx_bindaddr: SocketAddr = format!("127.0.0.53:{}", bindaddr.port()).parse().unwrap();
@@ -46,16 +49,16 @@ fn listening_sctp_bindx_add_success() {
 }
 
 // Tests for `sctp_peeloff` API for Listening Socket.
-#[test]
-fn listening_socket_no_connect_peeloff_failure() {
+#[tokio::test]
+async fn listening_socket_no_connect_peeloff_failure() {
     let (listener, _) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
     let result = listener.sctp_peeloff(42);
     assert!(result.is_err(), "{:#?}", result.ok().unwrap());
 }
 
-#[test]
-fn listening_socket_one2one_connected_peeloff_failure() {
+#[tokio::test]
+async fn listening_socket_one2one_connected_peeloff_failure() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
 
     let result =
@@ -70,8 +73,8 @@ fn listening_socket_one2one_connected_peeloff_failure() {
     assert!(received.is_err(), "{:#?}", received.ok().unwrap());
 }
 
-#[test]
-fn listening_socket_one2many_connected_peeloff_success() {
+#[tokio::test]
+async fn listening_socket_one2many_connected_peeloff_success() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
     let result =
