@@ -245,7 +245,7 @@ pub(crate) fn sctp_connectx_internal(
             Err(std::io::Error::last_os_error())
         } else {
             Ok((
-                SctpConnectedSocket::from_rawfd(fd),
+                SctpConnectedSocket::from_rawfd(fd)?,
                 result as SctpAssociationId,
             ))
         }
@@ -261,7 +261,10 @@ pub(crate) fn accept_internal(fd: RawFd) -> std::io::Result<(SctpConnectedSocket
     addrs_buff.reserve(32);
     let mut addrs_len = addrs_buff.len();
 
-    eprintln!("addrs_len: {}, addrs_u8: {:?}", addrs_len, addrs_buff,);
+    eprintln!(
+        "accept_internal: addrs_len: {}, addrs_u8: {:?}",
+        addrs_len, addrs_buff,
+    );
     // Safety: Both `addrs_buff` and `addrs_len` are in the scope and hence are valid pointers.
     unsafe {
         let addrs_len_ptr = std::ptr::addr_of_mut!(addrs_len);
@@ -277,11 +280,14 @@ pub(crate) fn accept_internal(fd: RawFd) -> std::io::Result<(SctpConnectedSocket
         } else {
             let os_socketaddr = OsSocketAddr::from_raw_parts(addrs_buff.as_ptr(), addrs_len);
             eprintln!(
-                "result: {},  addrs_len: {}, addrs_u8: {:?}",
-                result, addrs_len, addrs_buff,
+                "fd: {}, result: {},  addrs_len: {}, addrs_u8: {:?}",
+                fd, result, addrs_len, addrs_buff,
             );
             let socketaddr = os_socketaddr.into_addr().unwrap();
-            Ok((SctpConnectedSocket::from_rawfd(result as RawFd), socketaddr))
+            Ok((
+                SctpConnectedSocket::from_rawfd(result as RawFd)?,
+                socketaddr,
+            ))
         }
     }
 }

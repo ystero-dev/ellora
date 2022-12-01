@@ -5,8 +5,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 #[allow(unused)]
 use sctp_rs::*;
 
-#[test]
-fn socket_connect_basic_send_recv_req_info_on_and_off() {
+#[tokio::test]
+async fn socket_connect_basic_send_recv_req_info_on_and_off() {
     let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
     let result =
         client_socket.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Current);
@@ -105,8 +105,8 @@ fn socket_connect_basic_send_recv_req_info_on_and_off() {
     };
 }
 
-#[test]
-fn socket_send_recv_nxtinfo_test() {
+#[tokio::test]
+async fn socket_send_recv_nxtinfo_test() {
     let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
     let result =
         client_socket.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Current);
@@ -197,8 +197,8 @@ fn socket_send_recv_nxtinfo_test() {
     };
 }
 
-#[test]
-fn socket_init_params_set_ostreams_success() {
+#[tokio::test]
+async fn socket_init_params_set_ostreams_success() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
     let result =
@@ -254,8 +254,8 @@ fn socket_init_params_set_ostreams_success() {
     };
 }
 
-#[test]
-fn socket_sctp_req_recv_info_success() {
+#[tokio::test]
+async fn socket_sctp_req_recv_info_success() {
     let one2one_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
     let result = one2one_socket.sctp_request_rcvinfo(true);
     assert!(result.is_ok(), "{:?}", result.err().unwrap());
@@ -265,8 +265,8 @@ fn socket_sctp_req_recv_info_success() {
     assert!(result.is_ok(), "{:?}", result.err().unwrap());
 }
 
-#[test]
-fn test_bind_success() {
+#[tokio::test]
+async fn test_bind_success() {
     let sctp_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
     let bindaddr = Ipv4Addr::UNSPECIFIED;
 
@@ -274,8 +274,8 @@ fn test_bind_success() {
     assert!(result.is_ok(), "{:?}", result.err().unwrap());
 }
 
-#[test]
-fn test_bindx_inaddr_any_add_success() {
+#[tokio::test]
+async fn test_bindx_inaddr_any_add_success() {
     let sctp_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
     let bindaddr = Ipv4Addr::UNSPECIFIED;
 
@@ -284,8 +284,8 @@ fn test_bindx_inaddr_any_add_success() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 }
 
-#[test]
-fn test_bindx_inaddr6_any_add_success() {
+#[tokio::test]
+async fn test_bindx_inaddr6_any_add_success() {
     let sctp_socket = SctpSocket::new_v6(SocketToAssociation::OneToOne);
     let bindaddr = Ipv6Addr::UNSPECIFIED;
 
@@ -294,8 +294,8 @@ fn test_bindx_inaddr6_any_add_success() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 }
 
-#[test]
-fn test_bindx_inaddr_any_add_and_remove_failure() {
+#[tokio::test]
+async fn test_bindx_inaddr_any_add_and_remove_failure() {
     let sctp_socket = SctpSocket::new_v6(SocketToAssociation::OneToOne);
     let bindaddr6_localhost = Ipv6Addr::LOCALHOST;
 
