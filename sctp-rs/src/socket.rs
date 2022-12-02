@@ -6,7 +6,7 @@ use std::os::unix::io::RawFd;
 use tokio::io::unix::AsyncFd;
 
 use crate::{
-    BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent, SctpListener,
+    BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent, SctpListener, SctpStatus,
     SocketToAssociation, SubscribeEventAssocId,
 };
 
@@ -56,7 +56,7 @@ impl SctpSocket {
         self,
         addr: SocketAddr,
     ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
-        sctp_connectx_internal(self.inner.into_inner(), &[addr])
+        sctp_connectx_internal(self.inner, &[addr]).await
     }
 
     /// Section 9.1 RFC 6458
@@ -71,11 +71,11 @@ impl SctpSocket {
     /// An Unbound socket when connected to a remote end would return a
     /// [`SctpConnectedSocket`][`crate::SctpConnectedSocket`] and an
     /// [`SctpAssociationId`][`crate::types::SctpAssociationId`] tuple.
-    pub fn sctp_connectx(
+    pub async fn sctp_connectx(
         self,
         addrs: &[SocketAddr],
     ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
-        sctp_connectx_internal(self.inner.into_inner(), addrs)
+        sctp_connectx_internal(self.inner, addrs).await
     }
 
     /// Event Subscription for the socket.
@@ -115,5 +115,10 @@ impl SctpSocket {
     /// Request to receive `SctpNxtInfo` ancillary data
     pub fn sctp_request_nxtinfo(&self, on: bool) -> std::io::Result<()> {
         request_nxtinfo_internal(*self.inner.get_ref(), on)
+    }
+
+    /// Get's the status of the connection associated with the association ID
+    pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
+        sctp_get_status_internal(*self.inner.get_ref(), assoc_id)
     }
 }

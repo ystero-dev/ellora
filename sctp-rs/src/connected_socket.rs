@@ -8,7 +8,7 @@ use std::os::unix::io::RawFd;
 #[allow(unused)]
 use crate::internal::*;
 use crate::{
-    BindxFlags, SctpAssociationId, SctpEvent, SctpNotificationOrData, SctpSendData,
+    BindxFlags, SctpAssociationId, SctpEvent, SctpNotificationOrData, SctpSendData, SctpStatus,
     SubscribeEventAssocId,
 };
 
@@ -104,6 +104,11 @@ impl SctpConnectedSocket {
     /// Request to receive `SctpNxtInfo` ancillary data
     pub fn sctp_request_nxtinfo(&self, on: bool) -> std::io::Result<()> {
         request_nxtinfo_internal(*self.inner.get_ref(), on)
+    }
+
+    /// Get's the status of the connection associated with the association ID
+    pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
+        sctp_get_status_internal(*self.inner.get_ref(), assoc_id)
     }
 }
 

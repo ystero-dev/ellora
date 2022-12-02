@@ -18,13 +18,14 @@ async fn socket_connect_basic_send_recv_req_info_on_and_off() {
 
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
-    let sock_and_assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+    let sock_and_assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(
         sock_and_assoc_id.is_ok(),
         "{:#?}",
         sock_and_assoc_id.err().unwrap()
     );
     let (connected, assoc_id) = sock_and_assoc_id.unwrap();
+    eprintln!("assoc_id: {}", assoc_id);
 
     let laddrs = connected.sctp_getladdrs(assoc_id);
     assert!(laddrs.is_ok(), "{:#?}", laddrs.err().unwrap());
@@ -118,7 +119,7 @@ async fn socket_send_recv_nxtinfo_test() {
 
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
-    let sock_and_assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+    let sock_and_assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(
         sock_and_assoc_id.is_ok(),
         "{:#?}",
@@ -211,7 +212,7 @@ async fn socket_init_params_set_ostreams_success() {
     let result = client_socket.sctp_setup_init_params(client_ostreams, client_istreams, 0, 0);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
-    let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+    let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
     let result = listener.sctp_recv();
@@ -310,4 +311,15 @@ async fn test_bindx_inaddr_any_add_and_remove_failure() {
         BindxFlags::Remove,
     );
     assert!(result.is_err(), "{:#?}", result.ok().unwrap());
+}
+
+#[tokio::test]
+async fn test_connect_no_listen_failure() {
+    let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+    let connect_addr: SocketAddr = "127.0.0.53:8080".parse().unwrap();
+
+    let result = client_socket.connect(connect_addr).await;
+    assert!(result.is_err(), "{:?}", result.ok().unwrap());
+    let err = result.err().unwrap();
+    assert_eq!(err.raw_os_error(), Some(libc::ECONNREFUSED));
 }

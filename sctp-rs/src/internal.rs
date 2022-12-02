@@ -3,17 +3,19 @@
 //! Nothing in this module should be public API as this module contains `unsafe` code that uses
 //! `libc` and internal `libc` structs and function calls.
 
+use tokio::io::unix::AsyncFd;
+
 use std::convert::TryInto;
 use std::net::SocketAddr;
 use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
-use crate::types::internal::{SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
+use crate::types::internal::{SctpConnectxParam, SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
 use crate::{
     AssociationChange, BindxFlags, SctpAssociationId, SctpCmsgType, SctpConnectedSocket, SctpEvent,
     SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo, SctpReceivedData,
-    SctpSendData, SctpSendInfo, SubscribeEventAssocId,
+    SctpSendData, SctpSendInfo, SctpStatus, SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -106,14 +108,21 @@ pub(crate) fn sctp_socket_internal(
     assoc: crate::SocketToAssociation,
 ) -> RawFd {
     unsafe {
-        match assoc {
+        let rawfd = match assoc {
             crate::SocketToAssociation::OneToOne => {
                 libc::socket(domain, libc::SOCK_STREAM, libc::IPPROTO_SCTP)
             }
             crate::SocketToAssociation::OneToMany => {
                 libc::socket(domain, libc::SOCK_SEQPACKET, libc::IPPROTO_SCTP)
             }
-        }
+        };
+
+        // Set Non Blocking
+        let result = libc::fcntl(rawfd, libc::F_GETFL, 0);
+        let flags = result | libc::O_NONBLOCK;
+        let _result = libc::fcntl(rawfd, libc::F_SETFL, flags);
+
+        rawfd
     }
 }
 
@@ -216,8 +225,8 @@ fn sctp_getaddrs_internal(
 }
 
 // Implementation of `sctp_connectx` using setsockopt.
-pub(crate) fn sctp_connectx_internal(
-    fd: RawFd,
+pub(crate) async fn sctp_connectx_internal(
+    fd: AsyncFd<RawFd>,
     addrs: &[SocketAddr],
 ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
     let mut addrs_u8: Vec<u8> = vec![];
@@ -230,25 +239,54 @@ pub(crate) fn sctp_connectx_internal(
 
     let addrs_len = addrs_u8.len();
 
+    let raw_fd = *fd.get_ref();
     // Safety: The passed vector is valid during the function call and hence the passed reference
     // to raw data is valid.
     unsafe {
-        let result = libc::setsockopt(
-            fd,
+        let mut params = SctpConnectxParam {
+            assoc_id: 0,
+            addrs_size: addrs_len.try_into().unwrap(),
+            addrs: addrs_u8.as_mut_ptr(),
+        };
+
+        let mut params_size = std::mem::size_of::<SctpConnectxParam>() as libc::socklen_t;
+
+        let result = libc::getsockopt(
+            raw_fd,
             SOL_SCTP,
-            SCTP_SOCKOPT_CONNECTX,
-            addrs_u8.as_ptr() as *const _ as *const libc::c_void,
-            addrs_len as libc::socklen_t,
+            SCTP_SOCKOPT_CONNECTX3,
+            &mut params as *mut _ as *mut libc::c_void,
+            &mut params_size as *mut _ as *mut libc::socklen_t,
         );
 
         if result < 0 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            Ok((
-                SctpConnectedSocket::from_rawfd(fd)?,
-                result as SctpAssociationId,
-            ))
+            let last_error = std::io::Error::last_os_error();
+            if last_error.raw_os_error() != Some(libc::EINPROGRESS) {
+                return Err(last_error);
+            }
         }
+
+        let _guard = fd.writable().await?;
+
+        eprintln!("assoc_id: {}", params.assoc_id);
+        // We can (and should) now 'consume' the passed `fd` or else 'registration' of next
+        // `SctpConnectedSocket (during `AsyncFd::new` would fail. Consuming the `AsyncFd` would
+        // de-register.
+        let raw_fd = fd.into_inner();
+
+        let sctp_status = sctp_get_status_internal(raw_fd, params.assoc_id);
+        if let Err(e) = sctp_status {
+            let err = if e.raw_os_error() != Some(libc::EINVAL) {
+                e
+            } else {
+                std::io::Error::from_raw_os_error(libc::ECONNREFUSED)
+            };
+            return Err(err);
+        }
+
+        eprintln!("sctp_status.state: {:#?}", sctp_status.unwrap().state);
+
+        Ok((SctpConnectedSocket::from_rawfd(raw_fd)?, params.assoc_id))
     }
 }
 
@@ -592,6 +630,34 @@ pub(crate) fn request_nxtinfo_internal(fd: RawFd, on: bool) -> std::io::Result<(
             Err(std::io::Error::last_os_error())
         } else {
             Ok(())
+        }
+    }
+}
+
+// Get the status for the given Assoc ID
+pub(crate) fn sctp_get_status_internal(
+    fd: RawFd,
+    assoc_id: SctpAssociationId,
+) -> std::io::Result<SctpStatus> {
+    let status_ptr = std::mem::MaybeUninit::<SctpStatus>::zeroed();
+    let mut status_size = std::mem::size_of::<SctpStatus>();
+
+    unsafe {
+        let mut sctp_status = status_ptr.assume_init();
+        sctp_status.assoc_id = assoc_id;
+
+        let result = libc::getsockopt(
+            fd,
+            SOL_SCTP,
+            SCTP_STATUS,
+            &mut sctp_status as *mut _ as *mut libc::c_void,
+            &mut status_size as *mut _ as *mut libc::socklen_t,
+        );
+
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(sctp_status)
         }
     }
 }
