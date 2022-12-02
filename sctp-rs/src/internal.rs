@@ -365,7 +365,9 @@ pub(crate) fn shutdown_internal(fd: RawFd, how: std::net::Shutdown) -> std::io::
 
 // Implementation for the receive side for SCTP.
 // TODO: Handle Control Message Header
-pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificationOrData> {
+pub(crate) async fn sctp_recvmsg_internal(
+    fd: &AsyncFd<RawFd>,
+) -> std::io::Result<SctpNotificationOrData> {
     let mut recv_buffer = vec![0_u8; 4096];
     let mut recv_iov = libc::iovec {
         iov_base: recv_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
@@ -393,71 +395,82 @@ pub(crate) fn sctp_recvmsg_internal(fd: RawFd) -> std::io::Result<SctpNotificati
 
     // Safety: recvmsg_hdr is valid in the current scope.
     unsafe {
-        let flags = 0 as libc::c_int;
-        let result = libc::recvmsg(fd, &mut recvmsg_header as *mut libc::msghdr, flags);
-        if result < 0 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            let received_flags: u32 = recvmsg_header.msg_flags.try_into().unwrap();
-            recv_buffer.truncate(result as usize);
+        let rawfd = *fd.get_ref();
 
-            if received_flags & MSG_NOTIFICATION != 0 {
-                Ok(SctpNotificationOrData::Notification(
-                    notification_from_message(&recv_buffer),
-                ))
-            } else {
-                let mut rcv_info = None;
-                let mut nxt_info = None;
-                let mut cmsghdr = libc::CMSG_FIRSTHDR(&mut recvmsg_header as *mut libc::msghdr);
-                loop {
-                    if cmsghdr.is_null() {
-                        break;
-                    }
-                    if (*cmsghdr).cmsg_level != libc::IPPROTO_SCTP {
-                        continue;
-                    }
+        loop {
+            let mut guard = fd.readable().await?;
 
-                    if (*cmsghdr).cmsg_type == SctpCmsgType::SctpRcvInfo as i32 {
-                        let mut recv_info_internal = SctpRcvInfo::default();
-                        let cmsg_data = libc::CMSG_DATA(cmsghdr);
-                        std::ptr::copy(
-                            cmsg_data,
-                            &mut recv_info_internal as *mut _ as *mut u8,
-                            std::mem::size_of::<SctpRcvInfo>(),
-                        );
-                        rcv_info = Some(recv_info_internal);
-                    }
-
-                    if (*cmsghdr).cmsg_type == SctpCmsgType::SctpNxtInfo as i32 {
-                        let mut nxt_info_internal = SctpNxtInfo::default();
-                        let cmsg_data = libc::CMSG_DATA(cmsghdr);
-                        std::ptr::copy(
-                            cmsg_data,
-                            &mut nxt_info_internal as *mut _ as *mut u8,
-                            std::mem::size_of::<SctpNxtInfo>(),
-                        );
-                        nxt_info = Some(nxt_info_internal);
-                    }
-
-                    cmsghdr = libc::CMSG_NXTHDR(
-                        msg_control.as_mut_ptr() as *mut _ as *mut libc::msghdr,
-                        cmsghdr,
-                    );
+            let flags = 0 as libc::c_int;
+            let result = libc::recvmsg(rawfd, &mut recvmsg_header as *mut libc::msghdr, flags);
+            if result < 0 {
+                let last_error = std::io::Error::last_os_error();
+                if last_error.kind() == std::io::ErrorKind::WouldBlock {
+                    guard.clear_ready();
+                } else {
+                    return Err(last_error);
                 }
+            } else {
+                let received_flags: u32 = recvmsg_header.msg_flags.try_into().unwrap();
+                recv_buffer.truncate(result as usize);
 
-                Ok(SctpNotificationOrData::Data(SctpReceivedData {
-                    payload: recv_buffer,
-                    rcv_info,
-                    nxt_info,
-                }))
+                if received_flags & MSG_NOTIFICATION != 0 {
+                    return Ok(SctpNotificationOrData::Notification(
+                        notification_from_message(&recv_buffer),
+                    ));
+                } else {
+                    let mut rcv_info = None;
+                    let mut nxt_info = None;
+                    let mut cmsghdr = libc::CMSG_FIRSTHDR(&mut recvmsg_header as *mut libc::msghdr);
+                    loop {
+                        if cmsghdr.is_null() {
+                            break;
+                        }
+                        if (*cmsghdr).cmsg_level != libc::IPPROTO_SCTP {
+                            continue;
+                        }
+
+                        if (*cmsghdr).cmsg_type == SctpCmsgType::SctpRcvInfo as i32 {
+                            let mut recv_info_internal = SctpRcvInfo::default();
+                            let cmsg_data = libc::CMSG_DATA(cmsghdr);
+                            std::ptr::copy(
+                                cmsg_data,
+                                &mut recv_info_internal as *mut _ as *mut u8,
+                                std::mem::size_of::<SctpRcvInfo>(),
+                            );
+                            rcv_info = Some(recv_info_internal);
+                        }
+
+                        if (*cmsghdr).cmsg_type == SctpCmsgType::SctpNxtInfo as i32 {
+                            let mut nxt_info_internal = SctpNxtInfo::default();
+                            let cmsg_data = libc::CMSG_DATA(cmsghdr);
+                            std::ptr::copy(
+                                cmsg_data,
+                                &mut nxt_info_internal as *mut _ as *mut u8,
+                                std::mem::size_of::<SctpNxtInfo>(),
+                            );
+                            nxt_info = Some(nxt_info_internal);
+                        }
+
+                        cmsghdr = libc::CMSG_NXTHDR(
+                            msg_control.as_mut_ptr() as *mut _ as *mut libc::msghdr,
+                            cmsghdr,
+                        );
+                    }
+
+                    return Ok(SctpNotificationOrData::Data(SctpReceivedData {
+                        payload: recv_buffer,
+                        rcv_info,
+                        nxt_info,
+                    }));
+                }
             }
         }
     }
 }
 
 // Implementation of the Send side for SCTP.
-pub(crate) fn sctp_sendmsg_internal(
-    fd: RawFd,
+pub(crate) async fn sctp_sendmsg_internal(
+    fd: &AsyncFd<RawFd>,
     to: Option<SocketAddr>,
     data: SctpSendData,
 ) -> std::io::Result<()> {
@@ -504,8 +517,11 @@ pub(crate) fn sctp_sendmsg_internal(
     };
     // Safety: sendmsg_hdr is valid in the current scope.
     unsafe {
+        let _guard = fd.writable().await?;
+        let rawfd = *fd.get_ref();
+
         let flags = 0 as libc::c_int;
-        let result = libc::sendmsg(fd, &mut sendmsg_header as *mut libc::msghdr, flags);
+        let result = libc::sendmsg(rawfd, &mut sendmsg_header as *mut libc::msghdr, flags);
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {

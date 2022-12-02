@@ -86,7 +86,7 @@ async fn listening_socket_one2many_connected_peeloff_success() {
     let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
-    let result = listener.sctp_recv();
+    let result = listener.sctp_recv().await;
     assert!(result.is_ok(), "{:#}", result.err().unwrap());
 
     let notification = result.unwrap();

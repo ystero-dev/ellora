@@ -70,15 +70,15 @@ impl SctpConnectedSocket {
     /// Receive Data or Notification from the listening socket.
     ///
     /// This function returns either a notification or the data.
-    pub fn sctp_recv(&self) -> std::io::Result<SctpNotificationOrData> {
-        sctp_recvmsg_internal(*self.inner.get_ref())
+    pub async fn sctp_recv(&self) -> std::io::Result<SctpNotificationOrData> {
+        sctp_recvmsg_internal(&self.inner).await
     }
 
     /// Send Data and Anciliary data if any on the SCTP Socket.
     ///
     /// This function returns the result of Sending data on the socket.
-    pub fn sctp_send(&self, data: SctpSendData) -> std::io::Result<()> {
-        sctp_sendmsg_internal(*self.inner.get_ref(), None, data)
+    pub async fn sctp_send(&self, data: SctpSendData) -> std::io::Result<()> {
+        sctp_sendmsg_internal(&self.inner, None, data).await
     }
 
     /// Event Subscription for the socket.
