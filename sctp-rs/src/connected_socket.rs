@@ -35,6 +35,9 @@ impl SctpConnectedSocket {
     /// Socket to Association) or [`peeloff`][`crate::SctpListener::sctp_peeloff`] (in the case of
     /// One to Many Association) would use this API to create new [`SctpConnectedSocket`].
     pub fn from_rawfd(rawfd: RawFd) -> std::io::Result<Self> {
+        // Make sure that the FD is set as non-blocking.
+        set_fd_non_blocking(rawfd)?;
+
         Ok(Self {
             inner: AsyncFd::new(rawfd)?,
         })

@@ -1,4 +1,4 @@
-use crate::create_socket_bind_and_listen;
+use crate::{create_client_socket, create_socket_bind_and_listen};
 use sctp_rs::*;
 use std::net::SocketAddr;
 
@@ -7,14 +7,12 @@ use std::net::SocketAddr;
 async fn listening_one_2_one_listen_accept_success() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
 
-    let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
-    eprintln!("1");
+    let client_socket = create_client_socket(SocketToAssociation::OneToOne, true);
+
     let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
-    eprintln!("2");
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
     let accept = listener.accept().await;
-    eprintln!("3");
     assert!(accept.is_ok(), "{:#?}", accept.err().unwrap());
 
     // Get Peer Address
@@ -27,7 +25,8 @@ async fn listening_one_2_one_listen_accept_success() {
 async fn listening_one_2_many_listen_accept_failure() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
-    let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+    let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);
+
     let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
@@ -65,7 +64,8 @@ async fn listening_socket_one2one_connected_peeloff_failure() {
         listener.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Future);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
-    let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+    let client_socket = create_client_socket(SocketToAssociation::OneToOne, true);
+
     let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
@@ -81,7 +81,8 @@ async fn listening_socket_one2many_connected_peeloff_success() {
         listener.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Future);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
-    let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+    let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);
+
     let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 

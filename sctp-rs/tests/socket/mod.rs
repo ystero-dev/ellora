@@ -1,4 +1,4 @@
-use super::create_socket_bind_and_listen;
+use super::{create_client_socket, create_socket_bind_and_listen};
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
@@ -7,7 +7,8 @@ use sctp_rs::*;
 
 #[tokio::test]
 async fn socket_connect_basic_send_recv_req_info_on_and_off() {
-    let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+    let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);
+
     let result =
         client_socket.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Current);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
@@ -108,7 +109,7 @@ async fn socket_connect_basic_send_recv_req_info_on_and_off() {
 
 #[tokio::test]
 async fn socket_send_recv_nxtinfo_test() {
-    let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+    let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);
     let result =
         client_socket.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Current);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
@@ -208,7 +209,7 @@ async fn socket_init_params_set_ostreams_success() {
 
     let client_ostreams = 100;
     let client_istreams = 5;
-    let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+    let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);
     let result = client_socket.sctp_setup_init_params(client_ostreams, client_istreams, 0, 0);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
@@ -257,18 +258,18 @@ async fn socket_init_params_set_ostreams_success() {
 
 #[tokio::test]
 async fn socket_sctp_req_recv_info_success() {
-    let one2one_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+    let one2one_socket = create_client_socket(SocketToAssociation::OneToOne, true);
     let result = one2one_socket.sctp_request_rcvinfo(true);
     assert!(result.is_ok(), "{:?}", result.err().unwrap());
 
-    let one2many_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+    let one2many_socket = create_client_socket(SocketToAssociation::OneToMany, true);
     let result = one2many_socket.sctp_request_rcvinfo(true);
     assert!(result.is_ok(), "{:?}", result.err().unwrap());
 }
 
 #[tokio::test]
 async fn test_bind_success() {
-    let sctp_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+    let sctp_socket = create_client_socket(SocketToAssociation::OneToOne, true);
     let bindaddr = Ipv4Addr::UNSPECIFIED;
 
     let result = sctp_socket.bind(SocketAddr::new(IpAddr::V4(bindaddr), 0));
@@ -277,7 +278,7 @@ async fn test_bind_success() {
 
 #[tokio::test]
 async fn test_bindx_inaddr_any_add_success() {
-    let sctp_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
+    let sctp_socket = create_client_socket(SocketToAssociation::OneToOne, true);
     let bindaddr = Ipv4Addr::UNSPECIFIED;
 
     let result =
@@ -287,7 +288,7 @@ async fn test_bindx_inaddr_any_add_success() {
 
 #[tokio::test]
 async fn test_bindx_inaddr6_any_add_success() {
-    let sctp_socket = SctpSocket::new_v6(SocketToAssociation::OneToOne);
+    let sctp_socket = create_client_socket(SocketToAssociation::OneToOne, false);
     let bindaddr = Ipv6Addr::UNSPECIFIED;
 
     let result =
@@ -297,7 +298,7 @@ async fn test_bindx_inaddr6_any_add_success() {
 
 #[tokio::test]
 async fn test_bindx_inaddr_any_add_and_remove_failure() {
-    let sctp_socket = SctpSocket::new_v6(SocketToAssociation::OneToOne);
+    let sctp_socket = create_client_socket(SocketToAssociation::OneToOne, false);
     let bindaddr6_localhost = Ipv6Addr::LOCALHOST;
 
     let result = sctp_socket.sctp_bindx(
@@ -315,7 +316,7 @@ async fn test_bindx_inaddr_any_add_and_remove_failure() {
 
 #[tokio::test]
 async fn test_connect_no_listen_failure() {
-    let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
+    let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);
     let connect_addr: SocketAddr = "127.0.0.53:8080".parse().unwrap();
 
     let result = client_socket.connect(connect_addr).await;

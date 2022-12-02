@@ -106,7 +106,7 @@ pub(crate) fn sctp_peeloff_internal(
 pub(crate) fn sctp_socket_internal(
     domain: libc::c_int,
     assoc: crate::SocketToAssociation,
-) -> RawFd {
+) -> std::io::Result<RawFd> {
     unsafe {
         let rawfd = match assoc {
             crate::SocketToAssociation::OneToOne => {
@@ -117,9 +117,9 @@ pub(crate) fn sctp_socket_internal(
             }
         };
 
-        set_fd_non_blocking(rawfd).expect("Set Non Blocking failed.");
+        set_fd_non_blocking(rawfd)?;
 
-        rawfd
+        Ok(rawfd)
     }
 }
 
@@ -283,8 +283,6 @@ pub(crate) async fn sctp_connectx_internal(
 
         eprintln!("sctp_status.state: {:#?}", sctp_status.unwrap().state);
 
-        set_fd_non_blocking(rawfd)?;
-
         Ok((SctpConnectedSocket::from_rawfd(rawfd)?, params.assoc_id))
     }
 }
@@ -333,8 +331,6 @@ pub(crate) async fn accept_internal(
                     raw_fd, result, addrs_len, addrs_buff,
                 );
                 let socketaddr = os_socketaddr.into_addr().unwrap();
-
-                set_fd_non_blocking(result as RawFd)?;
 
                 return Ok((
                     SctpConnectedSocket::from_rawfd(result as RawFd)?,
@@ -677,7 +673,7 @@ pub(crate) fn sctp_get_status_internal(
     }
 }
 
-fn set_fd_non_blocking(fd: RawFd) -> std::io::Result<()> {
+pub(crate) fn set_fd_non_blocking(fd: RawFd) -> std::io::Result<()> {
     // Set Non Blocking
     unsafe {
         let result = libc::fcntl(fd, libc::F_GETFL, 0);
