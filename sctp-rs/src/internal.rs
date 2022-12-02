@@ -117,10 +117,7 @@ pub(crate) fn sctp_socket_internal(
             }
         };
 
-        // Set Non Blocking
-        let result = libc::fcntl(rawfd, libc::F_GETFL, 0);
-        let flags = result | libc::O_NONBLOCK;
-        let _result = libc::fcntl(rawfd, libc::F_SETFL, flags);
+        set_fd_non_blocking(rawfd).expect("Set Non Blocking failed.");
 
         rawfd
     }
@@ -272,9 +269,9 @@ pub(crate) async fn sctp_connectx_internal(
         // We can (and should) now 'consume' the passed `fd` or else 'registration' of next
         // `SctpConnectedSocket (during `AsyncFd::new` would fail. Consuming the `AsyncFd` would
         // de-register.
-        let raw_fd = fd.into_inner();
+        let rawfd = fd.into_inner();
 
-        let sctp_status = sctp_get_status_internal(raw_fd, params.assoc_id);
+        let sctp_status = sctp_get_status_internal(rawfd, params.assoc_id);
         if let Err(e) = sctp_status {
             let err = if e.raw_os_error() != Some(libc::EINVAL) {
                 e
@@ -286,46 +283,64 @@ pub(crate) async fn sctp_connectx_internal(
 
         eprintln!("sctp_status.state: {:#?}", sctp_status.unwrap().state);
 
-        Ok((SctpConnectedSocket::from_rawfd(raw_fd)?, params.assoc_id))
+        set_fd_non_blocking(rawfd)?;
+
+        Ok((SctpConnectedSocket::from_rawfd(rawfd)?, params.assoc_id))
     }
 }
 
 // Implementation of `accept` - we just call the `libc::accept` allowing it to fail if the socket
 // type is not the right one (UDP Style `SOCK_SEQPACKET`).
-pub(crate) fn accept_internal(fd: RawFd) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
-    // this should be enough to `accept` a connection normally `sockaddr`s maximum size is 28 for
-    // the `sa_family` we care about.
-    let mut addrs_buff: Vec<u8> = vec![0; 32];
-    addrs_buff.reserve(32);
-    let mut addrs_len = addrs_buff.len();
-
-    eprintln!(
-        "accept_internal: addrs_len: {}, addrs_u8: {:?}",
-        addrs_len, addrs_buff,
-    );
+pub(crate) async fn accept_internal(
+    fd: &AsyncFd<RawFd>,
+) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
     // Safety: Both `addrs_buff` and `addrs_len` are in the scope and hence are valid pointers.
     unsafe {
-        let addrs_len_ptr = std::ptr::addr_of_mut!(addrs_len);
-        let addrs_buff_ptr = addrs_buff.as_mut_ptr();
-        let result = libc::accept(
-            fd,
-            addrs_buff_ptr as *mut _ as *mut libc::sockaddr,
-            addrs_len_ptr as *mut _ as *mut libc::socklen_t,
-        );
+        let raw_fd = *fd.get_ref();
 
-        if result < 0 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            let os_socketaddr = OsSocketAddr::from_raw_parts(addrs_buff.as_ptr(), addrs_len);
+        loop {
+            // this should be enough to `accept` a connection normally `sockaddr`s maximum size is 28 for
+            // the `sa_family` we care about.
+
+            let mut addrs_buff: Vec<u8> = vec![0; 32];
+            let mut addrs_len = addrs_buff.len();
+
             eprintln!(
-                "fd: {}, result: {},  addrs_len: {}, addrs_u8: {:?}",
-                fd, result, addrs_len, addrs_buff,
+                "accept_internal: addrs_len: {}, addrs_u8: {:?}",
+                addrs_len, addrs_buff,
             );
-            let socketaddr = os_socketaddr.into_addr().unwrap();
-            Ok((
-                SctpConnectedSocket::from_rawfd(result as RawFd)?,
-                socketaddr,
-            ))
+            let addrs_len_ptr = std::ptr::addr_of_mut!(addrs_len);
+            let addrs_buff_ptr = addrs_buff.as_mut_ptr();
+
+            let result = libc::accept(
+                raw_fd,
+                addrs_buff_ptr as *mut _ as *mut libc::sockaddr,
+                addrs_len_ptr as *mut _ as *mut libc::socklen_t,
+            );
+
+            if result < 0 {
+                let last_error = std::io::Error::last_os_error();
+                if last_error.raw_os_error() != Some(libc::EWOULDBLOCK) {
+                    return Err(last_error);
+                }
+
+                // We got an `EWOULDBLOCK` let's wait.
+                let _guard = fd.readable().await?;
+            } else {
+                let os_socketaddr = OsSocketAddr::from_raw_parts(addrs_buff.as_ptr(), addrs_len);
+                eprintln!(
+                    "fd: {}, result: {},  addrs_len: {}, addrs_u8: {:?}",
+                    raw_fd, result, addrs_len, addrs_buff,
+                );
+                let socketaddr = os_socketaddr.into_addr().unwrap();
+
+                set_fd_non_blocking(result as RawFd)?;
+
+                return Ok((
+                    SctpConnectedSocket::from_rawfd(result as RawFd)?,
+                    socketaddr,
+                ));
+            }
         }
     }
 }
@@ -658,6 +673,23 @@ pub(crate) fn sctp_get_status_internal(
             Err(std::io::Error::last_os_error())
         } else {
             Ok(sctp_status)
+        }
+    }
+}
+
+fn set_fd_non_blocking(fd: RawFd) -> std::io::Result<()> {
+    // Set Non Blocking
+    unsafe {
+        let result = libc::fcntl(fd, libc::F_GETFL, 0);
+        if result < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        let flags = result | libc::O_NONBLOCK;
+        let result = libc::fcntl(fd, libc::F_SETFL, flags);
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
         }
     }
 }
