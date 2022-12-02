@@ -15,6 +15,9 @@ fn create_socket_bind_and_listen(
     } else {
         SctpSocket::new_v6(association)
     };
+    assert!(sctp_socket.is_ok(), "{:#?}", sctp_socket.err().unwrap());
+    let sctp_socket = sctp_socket.unwrap();
+
     let port = TEST_PORT_NO.fetch_add(1, Ordering::SeqCst);
     let bindaddr: SocketAddr = format!("127.0.0.1:{}", port).parse().unwrap();
 
@@ -25,6 +28,17 @@ fn create_socket_bind_and_listen(
     assert!(listener.is_ok(), "{:#?}", listener.err().unwrap());
 
     (listener.unwrap(), bindaddr)
+}
+
+fn create_client_socket(association: SocketToAssociation, v4: bool) -> SctpSocket {
+    let client_socket = if v4 {
+        SctpSocket::new_v4(association)
+    } else {
+        SctpSocket::new_v6(association)
+    };
+    assert!(client_socket.is_ok(), "{:#?}", client_socket.err().unwrap());
+
+    client_socket.unwrap()
 }
 
 mod connected_socket;

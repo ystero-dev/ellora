@@ -24,19 +24,17 @@ pub struct SctpSocket {
 
 impl SctpSocket {
     /// Create a New Socket for IPV4
-    pub fn new_v4(assoc: SocketToAssociation) -> Self {
-        Self {
-            inner: AsyncFd::new(sctp_socket_internal(libc::AF_INET, assoc))
-                .expect("AsyncFd get failed."),
-        }
+    pub fn new_v4(assoc: SocketToAssociation) -> std::io::Result<Self> {
+        Ok(Self {
+            inner: AsyncFd::new(sctp_socket_internal(libc::AF_INET, assoc)?)?,
+        })
     }
 
     /// Create a New Socket for IPV6
-    pub fn new_v6(assoc: crate::SocketToAssociation) -> Self {
-        Self {
-            inner: AsyncFd::new(sctp_socket_internal(libc::AF_INET6, assoc))
-                .expect("AsyncFd get failed."),
-        }
+    pub fn new_v6(assoc: crate::SocketToAssociation) -> std::io::Result<Self> {
+        Ok(Self {
+            inner: AsyncFd::new(sctp_socket_internal(libc::AF_INET6, assoc)?)?,
+        })
     }
 
     /// Bind a socket to a given IP Address
