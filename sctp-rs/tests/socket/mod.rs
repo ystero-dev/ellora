@@ -37,10 +37,10 @@ async fn socket_connect_basic_send_recv_req_info_on_and_off() {
         payload: b"hello world!".to_vec(),
         snd_info: None,
     };
-    let result = listener.sctp_send(client_addr, senddata.clone());
+    let result = listener.sctp_send(client_addr, senddata.clone()).await;
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
-    let result = connected.sctp_recv();
+    let result = connected.sctp_recv().await;
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     let data = result.unwrap();
     assert!(
@@ -77,10 +77,10 @@ async fn socket_connect_basic_send_recv_req_info_on_and_off() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     // Again send the data to client
-    let result = listener.sctp_send(client_addr, senddata);
+    let result = listener.sctp_send(client_addr, senddata).await;
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
-    let result = connected.sctp_recv();
+    let result = connected.sctp_recv().await;
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     let data = result.unwrap();
     assert!(
@@ -137,15 +137,15 @@ async fn socket_send_recv_nxtinfo_test() {
         payload: b"hello world!".to_vec(),
         snd_info: None,
     };
-    let result = listener.sctp_send(client_addr, senddata.clone());
+    let result = listener.sctp_send(client_addr, senddata.clone()).await;
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     // Send again
-    let result = listener.sctp_send(client_addr, senddata.clone());
+    let result = listener.sctp_send(client_addr, senddata.clone()).await;
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     // First Receive nxtinfo should not be none.
-    let result = connected.sctp_recv();
+    let result = connected.sctp_recv().await;
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     let data = result.unwrap();
     assert!(
@@ -172,7 +172,7 @@ async fn socket_send_recv_nxtinfo_test() {
     };
 
     // First Receive nxtinfo should not be none.
-    let result = connected.sctp_recv();
+    let result = connected.sctp_recv().await;
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     let data = result.unwrap();
     assert!(
@@ -216,7 +216,7 @@ async fn socket_init_params_set_ostreams_success() {
     let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
-    let result = listener.sctp_recv();
+    let result = listener.sctp_recv().await;
     assert!(result.is_ok(), "{:#}", result.err().unwrap());
 
     let notification = result.unwrap();
