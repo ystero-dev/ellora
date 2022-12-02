@@ -9,7 +9,7 @@ use tokio::io::unix::AsyncFd;
 use crate::internal::*;
 use crate::{
     types::SctpAssociationId, BindxFlags, SctpConnectedSocket, SctpEvent, SctpNotificationOrData,
-    SctpSendData, SubscribeEventAssocId,
+    SctpSendData, SctpStatus, SubscribeEventAssocId,
 };
 
 /// A structure representing a socket that is listening for incoming SCTP Connections.
@@ -93,6 +93,11 @@ impl SctpListener {
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(*self.inner.get_ref(), event, assoc_id, false)
+    }
+
+    /// Get's the status of the connection associated with the association ID
+    pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
+        sctp_get_status_internal(*self.inner.get_ref(), assoc_id)
     }
 
     // functions not part of public APIs

@@ -9,7 +9,7 @@ async fn listening_one_2_one_listen_accept_success() {
 
     let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
     eprintln!("1");
-    let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+    let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     eprintln!("2");
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
@@ -28,7 +28,7 @@ async fn listening_one_2_many_listen_accept_failure() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
     let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
-    let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+    let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
     let accept = listener.accept();
@@ -66,7 +66,7 @@ async fn listening_socket_one2one_connected_peeloff_failure() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToOne);
-    let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+    let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
     let received = listener.sctp_peeloff(0);
@@ -82,7 +82,7 @@ async fn listening_socket_one2many_connected_peeloff_success() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     let client_socket = SctpSocket::new_v4(SocketToAssociation::OneToMany);
-    let assoc_id = client_socket.sctp_connectx(&[bindaddr]);
+    let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
     let result = listener.sctp_recv();

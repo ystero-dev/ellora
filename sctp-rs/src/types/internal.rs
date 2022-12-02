@@ -54,3 +54,13 @@ pub(crate) struct SctpInitMsg {
     pub(crate) retries: u16,
     pub(crate) timeout: u16, // in miliseconds
 }
+
+// Structure used by connectx (using SCTP_SOCKOPT_CONNECTX3). This is required to get the
+// `assoc_id` in the case of non blocking sockets.
+#[repr(C)]
+#[derive(Debug)]
+pub(crate) struct SctpConnectxParam {
+    pub(crate) assoc_id: SctpAssociationId,
+    pub(crate) addrs_size: libc::c_int,
+    pub(crate) addrs: *mut u8,
+}

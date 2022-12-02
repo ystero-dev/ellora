@@ -183,4 +183,47 @@ pub enum SctpCmsgType {
     SctpDstAddrV6,
 }
 
+/// Constants related to `enm sctp_sstat_state`
+#[repr(i32)]
+#[derive(Debug, Clone, Default)]
+pub enum SctpConnState {
+    #[default]
+    Empty = 0,
+    Closed,
+    CookieWait,
+    CookieEchoed,
+    Established,
+    ShutdownPending,
+    ShutdownSent,
+    ShutdownReceived,
+    ShutdownAckSent,
+}
+
+/// SctpPeerAddress:
+#[repr(C, packed)]
+#[derive(Clone, Copy)]
+pub struct SctpPeerAddress {
+    assoc_id: SctpAssociationId,
+    address: libc::sockaddr_storage,
+    state: i32,
+    cwnd: u32,
+    srtt: u32,
+    rto: u32,
+    mtu: u32,
+}
+
+/// SctpStatus: Status of an SCTP Connection
+#[repr(C)]
+#[derive(Clone)]
+pub struct SctpStatus {
+    pub assoc_id: SctpAssociationId,
+    pub state: SctpConnState,
+    pub rwnd: u32,
+    pub unacked_data: u16,
+    pub pending_data: u16,
+    pub instreams: u16,
+    pub outstreams: u16,
+    pub fragmentation_pt: u32,
+    pub peer_primary: SctpPeerAddress,
+}
 pub(crate) mod internal;

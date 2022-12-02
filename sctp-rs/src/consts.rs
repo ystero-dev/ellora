@@ -16,6 +16,7 @@ pub(crate) static SCTP_GET_LOCAL_ADDRS: libc::c_int = 109;
 
 // To connect to an SCTP server.
 pub(crate) static SCTP_SOCKOPT_CONNECTX: libc::c_int = 110;
+pub(crate) static SCTP_SOCKOPT_CONNECTX3: libc::c_int = 111;
 
 // To subscribe to SCTP Events
 pub(crate) static SCTP_EVENT: libc::c_int = 127;
@@ -32,3 +33,6 @@ pub(crate) const SCTP_INITMSG: libc::c_int = 2;
 // Receving RCVINFO and NXTINFO
 pub(crate) const SCTP_RECVRCVINFO: libc::c_int = 32;
 pub(crate) const SCTP_RECVNXTINFO: libc::c_int = 33;
+
+// Get SCTP Status
+pub(crate) const SCTP_STATUS: libc::c_int = 14;
