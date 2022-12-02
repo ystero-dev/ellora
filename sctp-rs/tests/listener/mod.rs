@@ -13,7 +13,7 @@ async fn listening_one_2_one_listen_accept_success() {
     eprintln!("2");
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
-    let accept = listener.accept();
+    let accept = listener.accept().await;
     eprintln!("3");
     assert!(accept.is_ok(), "{:#?}", accept.err().unwrap());
 
@@ -31,7 +31,7 @@ async fn listening_one_2_many_listen_accept_failure() {
     let assoc_id = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(assoc_id.is_ok(), "{:#?}", assoc_id.err().unwrap());
 
-    let accept = listener.accept();
+    let accept = listener.accept().await;
     assert!(accept.is_err(), "{:#?}", accept.ok().unwrap());
 }
 

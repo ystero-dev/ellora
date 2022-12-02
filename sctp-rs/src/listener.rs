@@ -24,8 +24,8 @@ pub struct SctpListener {
 
 impl SctpListener {
     /// Accept on a given socket (valid only for `OneToOne` type sockets).
-    pub fn accept(&self) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
-        accept_internal(*self.inner.get_ref())
+    pub async fn accept(&self) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
+        accept_internal(&self.inner).await
     }
 
     /// Shutdown on the socket
