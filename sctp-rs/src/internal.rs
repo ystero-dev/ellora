@@ -14,8 +14,8 @@ use os_socketaddr::OsSocketAddr;
 use crate::types::internal::{SctpConnectxParam, SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
 use crate::{
     AssociationChange, BindxFlags, SctpAssociationId, SctpCmsgType, SctpConnectedSocket, SctpEvent,
-    SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo, SctpReceivedData,
-    SctpSendData, SctpSendInfo, SctpStatus, SubscribeEventAssocId,
+    SctpListener, SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo,
+    SctpReceivedData, SctpSendData, SctpSendInfo, SctpStatus, SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -25,7 +25,7 @@ static SOL_SCTP: libc::c_int = 132;
 
 // Implementation of `sctp_bindx` using `libc::setsockopt`
 pub(crate) fn sctp_bindx_internal(
-    fd: RawFd,
+    fd: &AsyncFd<RawFd>,
     addrs: &[SocketAddr],
     flags: BindxFlags,
 ) -> std::io::Result<()> {
@@ -53,7 +53,7 @@ pub(crate) fn sctp_bindx_internal(
     // to raw data is valid.
     unsafe {
         let result = libc::setsockopt(
-            fd,
+            *fd.get_ref(),
             SOL_SCTP,
             flags,
             addrs_u8.as_ptr() as *const _ as *const libc::c_void,
@@ -70,9 +70,9 @@ pub(crate) fn sctp_bindx_internal(
 
 // Implementation of `sctp_peeloff` using `libc::getsockopt`
 pub(crate) fn sctp_peeloff_internal(
-    fd: RawFd,
+    fd: &AsyncFd<RawFd>,
     assoc_id: SctpAssociationId,
-) -> std::io::Result<RawFd> {
+) -> std::io::Result<SctpConnectedSocket> {
     use crate::types::internal::SctpPeeloffArg;
 
     let mut peeloff_arg = SctpPeeloffArg::from_assoc_id(assoc_id);
@@ -85,7 +85,7 @@ pub(crate) fn sctp_peeloff_internal(
         let peeloff_arg_ptr = std::ptr::addr_of_mut!(peeloff_arg);
         let peeloff_size_ptr = std::ptr::addr_of_mut!(peeloff_size);
         let result = libc::getsockopt(
-            fd,
+            *fd.get_ref(),
             SOL_SCTP,
             SCTP_SOCKOPT_PEELOFF,
             peeloff_arg_ptr as *mut _ as *mut libc::c_void,
@@ -94,7 +94,10 @@ pub(crate) fn sctp_peeloff_internal(
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {
-            Ok(peeloff_arg.sd.as_raw_fd())
+            let rawfd = peeloff_arg.sd.as_raw_fd();
+            set_fd_non_blocking(rawfd)?;
+
+            SctpConnectedSocket::from_rawfd(rawfd)
         }
     }
 }
@@ -124,32 +127,36 @@ pub(crate) fn sctp_socket_internal(
 }
 
 // Implementation of `listen` using `libc::listen`
-pub(crate) fn sctp_listen_internal(fd: RawFd, backlog: i32) -> std::io::Result<()> {
+pub(crate) fn sctp_listen_internal(
+    fd: AsyncFd<RawFd>,
+    backlog: i32,
+) -> std::io::Result<SctpListener> {
     unsafe {
-        let result = libc::listen(fd, backlog);
+        let rawfd = *fd.get_ref();
+        let result = libc::listen(rawfd, backlog);
 
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {
-            Ok(())
+            SctpListener::from_raw_fd(fd.into_inner())
         }
     }
 }
 
 // Implmentation of `sctp_getpaddrs` using `libc::getsockopt`
 pub(crate) fn sctp_getpaddrs_internal(
-    fd: RawFd,
+    fd: &AsyncFd<RawFd>,
     assoc_id: SctpAssociationId,
 ) -> std::io::Result<Vec<SocketAddr>> {
-    sctp_getaddrs_internal(fd, SCTP_GET_PEER_ADDRS, assoc_id)
+    sctp_getaddrs_internal(*fd.get_ref(), SCTP_GET_PEER_ADDRS, assoc_id)
 }
 
 // Implmentation of `sctp_getladdrs` using `libc::getsockopt`
 pub(crate) fn sctp_getladdrs_internal(
-    fd: RawFd,
+    fd: &AsyncFd<RawFd>,
     assoc_id: SctpAssociationId,
 ) -> std::io::Result<Vec<SocketAddr>> {
-    sctp_getaddrs_internal(fd, SCTP_GET_LOCAL_ADDRS, assoc_id)
+    sctp_getaddrs_internal(*fd.get_ref(), SCTP_GET_LOCAL_ADDRS, assoc_id)
 }
 
 // Actual function performing `sctp_getpaddrs` or `sctp_getladdrs`
@@ -265,13 +272,7 @@ pub(crate) async fn sctp_connectx_internal(
 
         let _guard = fd.writable().await?;
 
-        eprintln!("assoc_id: {}", params.assoc_id);
-        // We can (and should) now 'consume' the passed `fd` or else 'registration' of next
-        // `SctpConnectedSocket` (during `AsyncFd::new` would fail. Consuming the `AsyncFd` would
-        // de-register.
-        let rawfd = fd.into_inner();
-
-        let sctp_status = sctp_get_status_internal(rawfd, params.assoc_id);
+        let sctp_status = sctp_get_status_internal(&fd, params.assoc_id);
         if let Err(e) = sctp_status {
             let err = if e.raw_os_error() != Some(libc::EINVAL) {
                 e
@@ -282,6 +283,13 @@ pub(crate) async fn sctp_connectx_internal(
         }
 
         eprintln!("sctp_status.state: {:#?}", sctp_status.unwrap().state);
+
+        // We can (and should) now 'consume' the passed `fd` or else 'registration' of next
+        // `SctpConnectedSocket` (during `AsyncFd::new` would fail. Consuming the `AsyncFd` would
+        // de-register.)
+        // Also, since this `fd` is the 'original' created with `socket` call, no need to set it to
+        // non-blocking again.
+        let rawfd = fd.into_inner();
 
         Ok((SctpConnectedSocket::from_rawfd(rawfd)?, params.assoc_id))
     }
@@ -337,6 +345,8 @@ pub(crate) async fn accept_internal(
                 );
                 let socketaddr = os_socketaddr.into_addr().unwrap();
 
+                set_fd_non_blocking(result as RawFd)?;
+
                 return Ok((
                     SctpConnectedSocket::from_rawfd(result as RawFd)?,
                     socketaddr,
@@ -347,7 +357,10 @@ pub(crate) async fn accept_internal(
 }
 
 // Shutdown implementation for `SctpListener` and `SctpConnectedSocket`.
-pub(crate) fn shutdown_internal(fd: RawFd, how: std::net::Shutdown) -> std::io::Result<()> {
+pub(crate) fn shutdown_internal(
+    fd: &AsyncFd<RawFd>,
+    how: std::net::Shutdown,
+) -> std::io::Result<()> {
     use std::net::Shutdown;
 
     let flags = match how {
@@ -359,7 +372,7 @@ pub(crate) fn shutdown_internal(fd: RawFd, how: std::net::Shutdown) -> std::io::
     // Safety: No real undefined behavior as long as fd is a valid fd and if fd is not a valid fd
     // the underlying systemcall will error.
     unsafe {
-        let result = libc::shutdown(fd, flags);
+        let result = libc::shutdown(*fd.get_ref(), flags);
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {
@@ -562,7 +575,7 @@ fn notification_from_message(data: &[u8]) -> SctpNotification {
 
 // Implementation of Event Subscription
 pub(crate) fn sctp_subscribe_event_internal(
-    fd: RawFd,
+    fd: &AsyncFd<RawFd>,
     event: SctpEvent,
     assoc_id: SubscribeEventAssocId,
     on: bool,
@@ -575,7 +588,7 @@ pub(crate) fn sctp_subscribe_event_internal(
 
     unsafe {
         let result = libc::setsockopt(
-            fd,
+            *fd.get_ref(),
             SOL_SCTP,
             SCTP_EVENT,
             &subscriber as *const _ as *const libc::c_void,
@@ -593,7 +606,7 @@ pub(crate) fn sctp_subscribe_event_internal(
 
 // Setup initiation parameters
 pub(crate) fn sctp_setup_init_params_internal(
-    fd: RawFd,
+    fd: &AsyncFd<RawFd>,
     ostreams: u16,
     istreams: u16,
     retries: u16,
@@ -608,7 +621,7 @@ pub(crate) fn sctp_setup_init_params_internal(
 
     unsafe {
         let result = libc::setsockopt(
-            fd,
+            *fd.get_ref(),
             SOL_SCTP,
             SCTP_INITMSG,
             &init_params as *const _ as *const libc::c_void,
@@ -623,13 +636,13 @@ pub(crate) fn sctp_setup_init_params_internal(
 }
 
 // Enable/Disable reception of `SctpRcvInfo` actual call.
-pub(crate) fn request_rcvinfo_internal(fd: RawFd, on: bool) -> std::io::Result<()> {
+pub(crate) fn request_rcvinfo_internal(fd: &AsyncFd<RawFd>, on: bool) -> std::io::Result<()> {
     let enable: libc::socklen_t = u32::from(on);
     let enable_size = std::mem::size_of::<libc::socklen_t>();
 
     unsafe {
         let result = libc::setsockopt(
-            fd,
+            *fd.get_ref(),
             SOL_SCTP,
             SCTP_RECVRCVINFO,
             &enable as *const _ as *const libc::c_void,
@@ -645,13 +658,13 @@ pub(crate) fn request_rcvinfo_internal(fd: RawFd, on: bool) -> std::io::Result<(
 }
 
 // Enable/Disable reception of `SctpNxtInfo` actual call.
-pub(crate) fn request_nxtinfo_internal(fd: RawFd, on: bool) -> std::io::Result<()> {
+pub(crate) fn request_nxtinfo_internal(fd: &AsyncFd<RawFd>, on: bool) -> std::io::Result<()> {
     let enable: libc::socklen_t = u32::from(on);
     let enable_size = std::mem::size_of::<libc::socklen_t>();
 
     unsafe {
         let result = libc::setsockopt(
-            fd,
+            *fd.get_ref(),
             SOL_SCTP,
             SCTP_RECVNXTINFO,
             &enable as *const _ as *const libc::c_void,
@@ -668,7 +681,7 @@ pub(crate) fn request_nxtinfo_internal(fd: RawFd, on: bool) -> std::io::Result<(
 
 // Get the status for the given Assoc ID
 pub(crate) fn sctp_get_status_internal(
-    fd: RawFd,
+    fd: &AsyncFd<RawFd>,
     assoc_id: SctpAssociationId,
 ) -> std::io::Result<SctpStatus> {
     let status_ptr = std::mem::MaybeUninit::<SctpStatus>::zeroed();
@@ -679,7 +692,7 @@ pub(crate) fn sctp_get_status_internal(
         sctp_status.assoc_id = assoc_id;
 
         let result = libc::getsockopt(
-            fd,
+            *fd.get_ref(),
             SOL_SCTP,
             SCTP_STATUS,
             &mut sctp_status as *mut _ as *mut libc::c_void,
@@ -694,7 +707,7 @@ pub(crate) fn sctp_get_status_internal(
     }
 }
 
-pub(crate) fn set_fd_non_blocking(fd: RawFd) -> std::io::Result<()> {
+fn set_fd_non_blocking(fd: RawFd) -> std::io::Result<()> {
     // Set Non Blocking
     unsafe {
         let result = libc::fcntl(fd, libc::F_GETFL, 0);
@@ -713,8 +726,8 @@ pub(crate) fn set_fd_non_blocking(fd: RawFd) -> std::io::Result<()> {
 
 // Close the socket
 #[inline(always)]
-pub(crate) fn close_internal(fd: RawFd) {
+pub(crate) fn close_internal(fd: &AsyncFd<RawFd>) {
     unsafe {
-        _ = libc::close(fd);
+        _ = libc::close(*fd.get_ref());
     }
 }

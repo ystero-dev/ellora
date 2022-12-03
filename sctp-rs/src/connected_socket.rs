@@ -35,9 +35,6 @@ impl SctpConnectedSocket {
     /// Socket to Association) or [`peeloff`][`crate::SctpListener::sctp_peeloff`] (in the case of
     /// One to Many Association) would use this API to create new [`SctpConnectedSocket`].
     pub fn from_rawfd(rawfd: RawFd) -> std::io::Result<Self> {
-        // Make sure that the FD is set as non-blocking.
-        set_fd_non_blocking(rawfd)?;
-
         Ok(Self {
             inner: AsyncFd::new(rawfd)?,
         })
@@ -46,7 +43,7 @@ impl SctpConnectedSocket {
     /// Perform a TCP like half close. Note: however that the semantics for TCP and SCTP half close
     /// are different. See section 4.1.7 of RFC 6458 for details.
     pub fn shutdown(&self, how: std::net::Shutdown) -> std::io::Result<()> {
-        shutdown_internal(*self.inner.get_ref(), how)
+        shutdown_internal(&self.inner, how)
     }
 
     /// Bind to addresses on the given socket. See Section 9.1 RFC 6458.
@@ -59,12 +56,12 @@ impl SctpConnectedSocket {
 
     /// Get Peer addresses for the association. See Section 9.3 RFC 6458.
     pub fn sctp_getpaddrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
-        sctp_getpaddrs_internal(*self.inner.get_ref(), assoc_id)
+        sctp_getpaddrs_internal(&self.inner, assoc_id)
     }
 
     /// Get Local addresses for the association. See section 9.5 RFC 6458.
     pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
-        sctp_getladdrs_internal(*self.inner.get_ref(), assoc_id)
+        sctp_getladdrs_internal(&self.inner, assoc_id)
     }
 
     /// Receive Data or Notification from the listening socket.
@@ -87,7 +84,7 @@ impl SctpConnectedSocket {
         event: SctpEvent,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
-        sctp_subscribe_event_internal(*self.inner.get_ref(), event, assoc_id, true)
+        sctp_subscribe_event_internal(&self.inner, event, assoc_id, true)
     }
 
     /// Event Unsubscription for the socket.
@@ -96,28 +93,28 @@ impl SctpConnectedSocket {
         event: SctpEvent,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
-        sctp_subscribe_event_internal(*self.inner.get_ref(), event, assoc_id, false)
+        sctp_subscribe_event_internal(&self.inner, event, assoc_id, false)
     }
 
     /// Request to receive `SctpRcvInfo` ancillary data
     pub fn sctp_request_rcvinfo(&self, on: bool) -> std::io::Result<()> {
-        request_rcvinfo_internal(*self.inner.get_ref(), on)
+        request_rcvinfo_internal(&self.inner, on)
     }
 
     /// Request to receive `SctpNxtInfo` ancillary data
     pub fn sctp_request_nxtinfo(&self, on: bool) -> std::io::Result<()> {
-        request_nxtinfo_internal(*self.inner.get_ref(), on)
+        request_nxtinfo_internal(&self.inner, on)
     }
 
     /// Get's the status of the connection associated with the association ID
     pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
-        sctp_get_status_internal(*self.inner.get_ref(), assoc_id)
+        sctp_get_status_internal(&self.inner, assoc_id)
     }
 }
 
 impl Drop for SctpConnectedSocket {
     // Drop for `SctpConnectedSocket`. We close the `inner` RawFd
     fn drop(&mut self) {
-        close_internal(*self.inner.get_ref());
+        close_internal(&self.inner);
     }
 }

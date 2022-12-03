@@ -1,7 +1,7 @@
 //! Listening SCTP Socket
 
 use std::net::SocketAddr;
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::RawFd;
 
 use tokio::io::unix::AsyncFd;
 
@@ -30,14 +30,14 @@ impl SctpListener {
 
     /// Shutdown on the socket
     pub fn shutdown(&self, how: std::net::Shutdown) -> std::io::Result<()> {
-        shutdown_internal(*self.inner.get_ref(), how)
+        shutdown_internal(&self.inner, how)
     }
 
     /// Binds to one or more local addresses. See: Section 9.1 RFC 6458
     ///
     /// It is possible to call `sctp_bindx` on an already 'bound' (that is 'listen'ing socket.)
     pub fn sctp_bindx(&self, addrs: &[SocketAddr], flags: BindxFlags) -> std::io::Result<()> {
-        sctp_bindx_internal(*self.inner.get_ref(), addrs, flags)
+        sctp_bindx_internal(&self.inner, addrs, flags)
     }
 
     /// Peels off a connected SCTP association from the listening socket. See: Section 9.2 RFC 6458
@@ -45,9 +45,7 @@ impl SctpListener {
         &self,
         assoc_id: SctpAssociationId,
     ) -> std::io::Result<SctpConnectedSocket> {
-        let fd = sctp_peeloff_internal(*self.inner.get_ref(), assoc_id)?;
-
-        SctpConnectedSocket::from_rawfd(fd.as_raw_fd())
+        sctp_peeloff_internal(&self.inner, assoc_id)
     }
 
     /// Get Peer Address(es) for the given Association ID. See: Section 9.3 RFC 6458
@@ -56,12 +54,12 @@ impl SctpListener {
     /// associations that are not peeled off, we are performing IO operations on the listening
     /// socket itself.
     pub fn sctp_getpaddrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
-        sctp_getpaddrs_internal(*self.inner.get_ref(), assoc_id)
+        sctp_getpaddrs_internal(&self.inner, assoc_id)
     }
 
     /// Get's the Local Addresses for the association. See: Section 9.4 RFC 6458
     pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
-        sctp_getladdrs_internal(*self.inner.get_ref(), assoc_id)
+        sctp_getladdrs_internal(&self.inner, assoc_id)
     }
 
     /// Receive Data or Notification from the listening socket.
@@ -84,7 +82,7 @@ impl SctpListener {
         event: SctpEvent,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
-        sctp_subscribe_event_internal(*self.inner.get_ref(), event, assoc_id, true)
+        sctp_subscribe_event_internal(&self.inner, event, assoc_id, true)
     }
 
     /// Event Unsubscription for the socket.
@@ -93,12 +91,12 @@ impl SctpListener {
         event: SctpEvent,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
-        sctp_subscribe_event_internal(*self.inner.get_ref(), event, assoc_id, false)
+        sctp_subscribe_event_internal(&self.inner, event, assoc_id, false)
     }
 
     /// Get's the status of the connection associated with the association ID
     pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
-        sctp_get_status_internal(*self.inner.get_ref(), assoc_id)
+        sctp_get_status_internal(&self.inner, assoc_id)
     }
 
     // functions not part of public APIs
@@ -112,6 +110,6 @@ impl SctpListener {
 impl Drop for SctpListener {
     // Drop for `SctpListener`. We close the `inner` RawFd
     fn drop(&mut self) {
-        close_internal(*self.inner.get_ref());
+        close_internal(&self.inner);
     }
 }
