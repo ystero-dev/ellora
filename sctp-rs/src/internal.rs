@@ -23,7 +23,7 @@ use super::consts::*;
 
 static SOL_SCTP: libc::c_int = 132;
 
-/// Implementation of `sctp_bindx` using `libc::setsockopt`
+// Implementation of `sctp_bindx` using `libc::setsockopt`
 pub(crate) fn sctp_bindx_internal(
     fd: RawFd,
     addrs: &[SocketAddr],
@@ -68,7 +68,7 @@ pub(crate) fn sctp_bindx_internal(
     }
 }
 
-/// Implementation of `sctp_peeloff` using `libc::getsockopt`
+// Implementation of `sctp_peeloff` using `libc::getsockopt`
 pub(crate) fn sctp_peeloff_internal(
     fd: RawFd,
     assoc_id: SctpAssociationId,
@@ -99,10 +99,10 @@ pub(crate) fn sctp_peeloff_internal(
     }
 }
 
-/// Implementation of `socket` using `libc::socket`.
-///
-/// Based on the type of the requested socket, we pass different `type` parameter to actual
-/// `libc::socket` call. See section 3.1.1 and section 4.1.1 of RFC 6458.
+// Implementation of `socket` using `libc::socket`.
+//
+// Based on the type of the requested socket, we pass different `type` parameter to actual
+// `libc::socket` call. See section 3.1.1 and section 4.1.1 of RFC 6458.
 pub(crate) fn sctp_socket_internal(
     domain: libc::c_int,
     assoc: crate::SocketToAssociation,
@@ -123,7 +123,7 @@ pub(crate) fn sctp_socket_internal(
     }
 }
 
-/// Implementation of `listen` using `libc::listen`
+// Implementation of `listen` using `libc::listen`
 pub(crate) fn sctp_listen_internal(fd: RawFd, backlog: i32) -> std::io::Result<()> {
     unsafe {
         let result = libc::listen(fd, backlog);
@@ -136,7 +136,7 @@ pub(crate) fn sctp_listen_internal(fd: RawFd, backlog: i32) -> std::io::Result<(
     }
 }
 
-/// Implmentation of `sctp_getpaddrs` using `libc::getsockopt`
+// Implmentation of `sctp_getpaddrs` using `libc::getsockopt`
 pub(crate) fn sctp_getpaddrs_internal(
     fd: RawFd,
     assoc_id: SctpAssociationId,
@@ -144,7 +144,7 @@ pub(crate) fn sctp_getpaddrs_internal(
     sctp_getaddrs_internal(fd, SCTP_GET_PEER_ADDRS, assoc_id)
 }
 
-/// Implmentation of `sctp_getladdrs` using `libc::getsockopt`
+// Implmentation of `sctp_getladdrs` using `libc::getsockopt`
 pub(crate) fn sctp_getladdrs_internal(
     fd: RawFd,
     assoc_id: SctpAssociationId,
@@ -221,7 +221,7 @@ fn sctp_getaddrs_internal(
     }
 }
 
-// Implementation of `sctp_connectx` using setsockopt.
+// Implementation of `sctp_connectx` using `getsockopt` and new API using `SCTP_SOCKOPT_CONNECTX3`.
 pub(crate) async fn sctp_connectx_internal(
     fd: AsyncFd<RawFd>,
     addrs: &[SocketAddr],
@@ -267,7 +267,7 @@ pub(crate) async fn sctp_connectx_internal(
 
         eprintln!("assoc_id: {}", params.assoc_id);
         // We can (and should) now 'consume' the passed `fd` or else 'registration' of next
-        // `SctpConnectedSocket (during `AsyncFd::new` would fail. Consuming the `AsyncFd` would
+        // `SctpConnectedSocket` (during `AsyncFd::new` would fail. Consuming the `AsyncFd` would
         // de-register.
         let rawfd = fd.into_inner();
 
@@ -296,10 +296,15 @@ pub(crate) async fn accept_internal(
     unsafe {
         let raw_fd = *fd.get_ref();
 
+        // This is ugly for the following reasons - On the `SEQPACKET` sockets, we do not get
+        // `readable` ready at all for the `accept`.  (Why not sure? Even when tried after sending
+        // some dummy data to make sure we can recv on it.) Thus we try `accept` first for
+        // `SEQPACKET` sockets, this `accept` would fail with `EINVAL` and for `STREAM` sockets,
+        // this 'may' fail with `EWOULDBLOCK`. If it does, we wait for `readable` event again, in
+        // the next iteration of the `loop`, we won't get `EWOULDBLOCK` and will actually `accept`.
         loop {
-            // this should be enough to `accept` a connection normally `sockaddr`s maximum size is 28 for
-            // the `sa_family` we care about.
-
+            // this should be enough to `accept` a connection normally `sockaddr`s maximum size is
+            // 28 for the `sa_family` we care about.
             let mut addrs_buff: Vec<u8> = vec![0; 32];
             let mut addrs_len = addrs_buff.len();
 
@@ -511,7 +516,7 @@ pub(crate) async fn sctp_sendmsg_internal(
         msg_namelen: to_buffer_len,
         msg_iov: &mut send_iov,
         msg_iovlen: 1,
-        msg_control: msg_control,
+        msg_control,
         msg_controllen: msg_control_size,
         msg_flags: 0,
     };

@@ -46,7 +46,7 @@ impl SctpSocket {
     pub fn listen(self, backlog: i32) -> std::io::Result<SctpListener> {
         sctp_listen_internal(*self.inner.get_ref(), backlog)?;
 
-        Ok(SctpListener::from_raw_fd(self.inner.into_inner())?)
+        SctpListener::from_raw_fd(self.inner.into_inner())
     }
 
     /// Connect to a given Server

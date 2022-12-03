@@ -46,7 +46,8 @@ impl SctpListener {
         assoc_id: SctpAssociationId,
     ) -> std::io::Result<SctpConnectedSocket> {
         let fd = sctp_peeloff_internal(*self.inner.get_ref(), assoc_id)?;
-        Ok(SctpConnectedSocket::from_rawfd(fd.as_raw_fd())?)
+
+        SctpConnectedSocket::from_rawfd(fd.as_raw_fd())
     }
 
     /// Get Peer Address(es) for the given Association ID. See: Section 9.3 RFC 6458
