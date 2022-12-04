@@ -15,3 +15,16 @@ license-file = "LICENSE"
 os_socketaddr = { version = "0.2" }
 libc = { version = "0.2" }
 tokio = { version = "1.0" , features = ["net", "macros", "rt"]}
+
+[dev-dependencies]
+clap = "3"
+
+[[example]]
+name = "ping"
+path = "examples/src/ping.rs"
+
+
+[[example]]
+name = "pong"
+path = "examples/src/pong.rs"
+
