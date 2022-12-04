@@ -3,7 +3,7 @@
 The goal of the project is to be a toolkit for Stream Control Transport Protocol (`SCTP`) implemented in Rust. Eventually, it should be possible to have `SCTP` supported as well as other transport protocols like `TCP`, `UDP` in the Rust's `async` ecosystem.
 
 Currently following crate is implemented -
-* `sctp-rs` - This crate provides ergonomic, safe APIs in Rust. See [README.md](https://github.com/gabhijit/ellora/master/blob/sct-rs/README.md) for more details.
+* `sctp-rs` - This crate provides ergonomic, safe APIs in Rust. See [README.md](https://github.com/gabhijit/ellora/blob/main/sctp-rs/README.md) for more details.
 
 # Motivation
 
