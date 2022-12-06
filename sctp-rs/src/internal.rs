@@ -138,7 +138,7 @@ pub(crate) fn sctp_listen_internal(
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {
-            SctpListener::from_raw_fd(fd.into_inner())
+            SctpListener::from_rawfd(fd.into_inner())
         }
     }
 }
@@ -557,7 +557,7 @@ fn notification_from_message(data: &[u8]) -> SctpNotification {
     match notification_type {
         SCTP_ASSOC_CHANGE => {
             let assoc_change = AssociationChange {
-                assoc_type: u16::from_ne_bytes(data[0..2].try_into().unwrap()),
+                type_: u16::from_ne_bytes(data[0..2].try_into().unwrap()),
                 flags: u16::from_ne_bytes(data[2..4].try_into().unwrap()),
                 length: u32::from_ne_bytes(data[4..8].try_into().unwrap()),
                 state: u16::from_ne_bytes(data[8..10].try_into().unwrap()),

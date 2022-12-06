@@ -11,6 +11,31 @@
 //! Also, the APIs are designed such that they are idiomatic Rust APIs and making use of
 //! appropriate types thus making use of the [`std::net::SocketAddr`] structures wherever
 //! appropriate rather than using the [`libc::sockaddr`] structures for example.
+//!
+//! # Example
+//!
+//! The examples below will help you to get started using the APIs in your application.
+//!
+//! ```rust,no_run
+//!
+//! # #[tokio::main(flavor="current_thread")]
+//! # async fn main() -> std::io::Result<()> {
+//!
+//! // Create a TCP Style (Socket-to-association is 1-1) socket.
+//! let client = sctp_rs::SctpSocket::new_v4(sctp_rs::SocketToAssociation::OneToOne)?;
+//!
+//! let bind_addr: std::net::SocketAddr = "127.0.0.1:8080".parse().unwrap();
+//! client.bind(bind_addr)?;
+//!
+//! // Listen on the socket listen queue size of 10. Normally this number should be considerably
+//! // higher like 100 or so.
+//! let listener = client.listen(10)?;
+//!
+//! // Accept on the socket and process data.
+//! let accepted = listener.accept().await?;
+//!
+//! # Ok(())
+//! # }
 
 mod connected_socket;
 mod listener;

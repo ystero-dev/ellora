@@ -16,20 +16,20 @@ pub enum BindxFlags {
 /// SocketToAssociation: One-to-Many or One-to-One style Socket
 #[derive(Debug, Clone)]
 pub enum SocketToAssociation {
-    /// One Association per Socket
+    /// One Association per Socket (TCP Style Socket.)
     OneToOne,
 
-    /// Many Associations per Socket
+    /// Many Associations per Socket (UDP Style Socket.)
     OneToMany,
 }
 
-/// SctpNotificationOrData: A type returned by a `sctp_recvv` call.
+/// SctpNotificationOrData: A type returned by a `sctp_recv` call.
 #[derive(Debug, Clone)]
 pub enum SctpNotificationOrData {
-    /// SCTP Notification received by an `sctp_recvv` call
+    /// SCTP Notification received by an `sctp_recv` call.
     Notification(SctpNotification),
 
-    /// SCTP Data Received by an association.
+    /// SCTP Data Received by an `sctp_recv` call.
     Data(SctpReceivedData),
 }
 
@@ -39,8 +39,13 @@ pub enum SctpNotificationOrData {
 /// data, any ancillary data that is received during the underlying system call.
 #[derive(Debug, Clone)]
 pub struct SctpReceivedData {
+    /// Received Message Payload.
     pub payload: Vec<u8>,
+
+    /// Optional ancillary information about the received payload.
     pub rcv_info: Option<SctpRcvInfo>,
+
+    /// Optional ancillary information about the next call to `sctp_recv`.
     pub nxt_info: Option<SctpNxtInfo>,
 }
 
@@ -49,17 +54,29 @@ pub struct SctpReceivedData {
 /// This structure contains actual paylod and optional ancillary data.
 #[derive(Debug, Clone)]
 pub struct SctpSendData {
+    /// Received Message Payload.
     pub payload: Vec<u8>,
+
+    /// Optional ancillary information used to send the data.
     pub snd_info: Option<SctpSendInfo>,
 }
 
 /// Structure representing Ancilliary Send Information (See Section 5.3.4 of RFC 6458)
 #[derive(Debug, Default, Clone)]
 pub struct SctpSendInfo {
+    /// Stream ID of the stream to send the data on.
     pub sid: u16,
+
+    /// Flags to be used while sending the data.
     pub flags: u16,
+
+    /// Application Protocol ID to be used while sending the data.
     pub ppid: u32,
+
+    /// Opaque context to be used while sending the data.
     pub context: u32,
+
+    /// Association ID of the SCTP Association to be used while sending the data.
     pub assoc_id: SctpAssociationId,
 }
 
@@ -67,13 +84,28 @@ pub struct SctpSendInfo {
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
 pub struct SctpRcvInfo {
+    /// Stream ID on which the data is received.
     pub sid: u16,
+
+    /// Stream Sequence Number received in the data.
     pub ssn: u16,
+
+    /// Flags for the received data.
     pub flags: u16,
+
+    /// Application Protocol ID used by the sender while sending the data.
     pub ppid: u32,
+
+    /// Transaction sequence number.
     pub tsn: u32,
+
+    /// Cumulative sequence number.
     pub cumtsn: u32,
+
+    /// Opaque context.
     pub context: u32,
+
+    /// SCTP Association ID.
     pub assoc_id: SctpAssociationId,
 }
 
@@ -81,14 +113,24 @@ pub struct SctpRcvInfo {
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
 pub struct SctpNxtInfo {
+    /// Stream ID for the next received data.
     pub sid: u16,
+
+    /// Flags for the next received data.
     pub flags: u16,
+
+    /// Application protocol ID.
     pub ppid: u32,
+
+    /// Length of the message to be used in the next `sctp_recv` call.
     pub length: u32,
+
+    /// SCTP Association ID.
     pub assoc_id: SctpAssociationId,
 }
 
 #[derive(Debug, Clone)]
+/// An `enum` representing the notifications received on the SCTP Sockets.
 pub enum SctpNotification {
     /// Association Change Notification. See Section 6.1.1 of RFC 6458
     AssociationChange(AssociationChange),
@@ -104,14 +146,31 @@ pub enum SctpNotification {
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct AssociationChange {
-    pub assoc_type: u16,
+    /// Type of the Notification always `SCTP_ASSOC_CHAGE`
+    pub type_: u16,
+
+    /// Notification Flags. Unused currently.
     pub flags: u16,
+
+    /// Length of the notification data.
     pub length: u32,
+
+    /// Association Change state. See also [`SctpAssocChangeState`].
     pub state: u16,
+
+    /// Error when state is an error state and error information is available.
     pub error: u16,
+
+    /// Maximum number of outbound streams.
     pub ob_streams: u16,
+
+    /// Maximum number of inbound streams.
     pub ib_streams: u16,
+
+    /// Association ID for the event.
     pub assoc_id: SctpAssociationId,
+
+    /// Additional data for the event.
     pub info: Vec<u8>,
 }
 
@@ -121,19 +180,47 @@ pub struct AssociationChange {
 #[repr(u16)]
 #[derive(Debug, Clone)]
 pub enum SctpEvent {
+    /// Event to receive ancillary information with every `sct_recv`.
     DataIo = (1 << 15),
+
+    /// Event related to association change.
     Association,
+
+    /// Event related to peer address change.
     Address,
+
+    /// Event related to send failure.
     SendFailure,
+
+    /// Event related to error received from the peer.
     PeerError,
+
+    /// Event related to indicate peer shutdown.
     Shutdown,
+
+    /// Event related to indicate partial delivery.
     PartialDelivery,
+
+    /// Event related to indicate peer's partial indication.
     AdaptationLayer,
+
+    /// Authentication event.
     Authentication,
+
+    /// Event related to sender having no outstanding user data.
     SenderDry,
+
+    /// Event related to stream reset.
     StreamReset,
+
+    /// Event related to association reset.
     AssociationReset,
+
+    /// Event related to stream change.
     StreamChange,
+
+    /// Send Failure Event indication. (The actual received information is different from the one
+    /// received in the `SendFailed` event.)
     SendFailureEvent,
 }
 
@@ -142,9 +229,16 @@ pub enum SctpEvent {
 /// Note: repr should be same as `SctpAssociationId` (ie. `i32`)
 #[repr(i32)]
 pub enum SubscribeEventAssocId {
+    /// Subscribe to Future Association IDs
     Future,
+
+    /// Subscribe to Current Association IDs
     Current,
+
+    /// Subscribe to ALL Association IDs
     All,
+
+    /// Subscribe to Association ID with a given value.
     Value(SctpAssociationId),
 }
 
@@ -161,11 +255,21 @@ impl From<SubscribeEventAssocId> for SctpAssociationId {
 
 /// Association Change States
 #[repr(u16)]
+#[derive(Clone, Debug)]
 pub enum SctpAssocChangeState {
+    /// SCTP communication up.
     SctpCommUp = 0,
+
+    /// SCTP communication lost.
     SctpCommLost,
+
+    /// SCTP communication restarted.
     SctpRestart,
+
+    /// Shutdown complete.
     SctpShutdownComplete,
+
+    /// Cannot start association.
     SctpCantStartAssoc,
 }
 
@@ -199,7 +303,7 @@ pub enum SctpConnState {
     ShutdownAckSent,
 }
 
-/// SctpPeerAddress:
+/// SctpPeerAddress: Structure representing SCTP Peer Address.
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
 pub struct SctpPeerAddress {
@@ -226,4 +330,5 @@ pub struct SctpStatus {
     pub fragmentation_pt: u32,
     pub peer_primary: SctpPeerAddress,
 }
+
 pub(crate) mod internal;

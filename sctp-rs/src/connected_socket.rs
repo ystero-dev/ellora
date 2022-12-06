@@ -40,8 +40,10 @@ impl SctpConnectedSocket {
         })
     }
 
-    /// Perform a TCP like half close. Note: however that the semantics for TCP and SCTP half close
-    /// are different. See section 4.1.7 of RFC 6458 for details.
+    /// Perform a TCP like half close.
+    ///
+    /// Note: however that the semantics for TCP and SCTP half close are different. See section
+    /// 4.1.7 of RFC 6458 for details.
     pub fn shutdown(&self, how: std::net::Shutdown) -> std::io::Result<()> {
         shutdown_internal(&self.inner, how)
     }
@@ -66,19 +68,27 @@ impl SctpConnectedSocket {
 
     /// Receive Data or Notification from the listening socket.
     ///
-    /// This function returns either a notification or the data.
+    /// In the case of One-to-many sockets, it is possible to receive on the listening socket,
+    /// without explicitly 'accept'ing or 'peeling off' the socket. The internal API used to
+    /// receive the data is also the API used to receive notifications. This function returns
+    /// either the notification (which the user should have subscribed for) or the data.
     pub async fn sctp_recv(&self) -> std::io::Result<SctpNotificationOrData> {
         sctp_recvmsg_internal(&self.inner).await
     }
 
     /// Send Data and Anciliary data if any on the SCTP Socket.
     ///
-    /// This function returns the result of Sending data on the socket.
+    /// SCTP supports sending the actual SCTP message together with sending any anciliary data on
+    /// the SCTP association. The anciliary data is optional.
     pub async fn sctp_send(&self, data: SctpSendData) -> std::io::Result<()> {
         sctp_sendmsg_internal(&self.inner, None, data).await
     }
 
-    /// Event Subscription for the socket.
+    /// Subscribe to a given SCTP Event on the given socket. See section 6.2.1 of RFC6458.
+    ///
+    /// SCTP allows receiving notifications about the changes to SCTP associations etc from the
+    /// user space. For these notification events to be received, this API is used to subsribe for
+    /// the events while receiving the data on the SCTP Socket.
     pub fn sctp_subscribe_event(
         &self,
         event: SctpEvent,
@@ -87,7 +97,9 @@ impl SctpConnectedSocket {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, true)
     }
 
-    /// Event Unsubscription for the socket.
+    /// Unsubscribe from a given SCTP Event on the given socket. See section 6.2.1 of RFC6458.
+    ///
+    /// See [`sctp_subscribe_event`][`Self::sctp_subscribe_event`] for further details.
     pub fn sctp_unsubscribe_event(
         &self,
         event: SctpEvent,
@@ -96,17 +108,23 @@ impl SctpConnectedSocket {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, false)
     }
 
-    /// Request to receive `SctpRcvInfo` ancillary data
+    /// Request to receive `SctpRcvInfo` ancillary data.
+    ///
+    /// SCTP allows receiving ancillary data about the curent data received on the given socket.
+    /// This API is used to obtain receive side additional info when the data is to be received.
     pub fn sctp_request_rcvinfo(&self, on: bool) -> std::io::Result<()> {
         request_rcvinfo_internal(&self.inner, on)
     }
 
-    /// Request to receive `SctpNxtInfo` ancillary data
+    /// Request to receive `SctpNxtInfo` ancillary data.
+    ///
+    /// SCTP allows receiving ancillary data about the curent data received on the given socket.
+    /// This API is used to obtain information about the next datagram that will be received.
     pub fn sctp_request_nxtinfo(&self, on: bool) -> std::io::Result<()> {
         request_nxtinfo_internal(&self.inner, on)
     }
 
-    /// Get's the status of the connection associated with the association ID
+    /// Get the status of the connection associated with the association ID.
     pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
         sctp_get_status_internal(&self.inner, assoc_id)
     }

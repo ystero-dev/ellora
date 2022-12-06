@@ -41,6 +41,10 @@ impl SctpListener {
     }
 
     /// Peels off a connected SCTP association from the listening socket. See: Section 9.2 RFC 6458
+    ///
+    /// This call is successful only for UDP style one to many sockets. This is like
+    /// `[crate::SctpListener::accept`] where peeled off socket behaves like a stand alone
+    /// one-to-one socket.
     pub fn sctp_peeloff(
         &self,
         assoc_id: SctpAssociationId,
@@ -64,19 +68,27 @@ impl SctpListener {
 
     /// Receive Data or Notification from the listening socket.
     ///
-    /// This function returns either a notification or the data.
+    /// In the case of One-to-many sockets, it is possible to receive on the listening socket,
+    /// without explicitly 'accept'ing or 'peeling off' the socket. The internal API used to
+    /// receive the data is also the API used to receive notifications. This function returns
+    /// either the notification (which the user should have subscribed for) or the data.
     pub async fn sctp_recv(&self) -> std::io::Result<SctpNotificationOrData> {
         sctp_recvmsg_internal(&self.inner).await
     }
 
     /// Send Data and Anciliary data if any on the SCTP Socket.
     ///
-    /// This function returns the result of Sending data on the socket.
+    /// SCTP supports sending the actual SCTP message together with sending any anciliary data on
+    /// the SCTP association. The anciliary data is optional.
     pub async fn sctp_send(&self, to: SocketAddr, data: SctpSendData) -> std::io::Result<()> {
         sctp_sendmsg_internal(&self.inner, Some(to), data).await
     }
 
-    /// Event Subscription for the socket.
+    /// Subscribe to a given SCTP Event on the given socket. See section 6.2.1 of RFC6458.
+    ///
+    /// SCTP allows receiving notifications about the changes to SCTP associations etc from the
+    /// user space. For these notification events to be received, this API is used to subsribe for
+    /// the events while receiving the data on the SCTP Socket.
     pub fn sctp_subscribe_event(
         &self,
         event: SctpEvent,
@@ -85,7 +97,9 @@ impl SctpListener {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, true)
     }
 
-    /// Event Unsubscription for the socket.
+    /// Unsubscribe from a given SCTP Event on the given socket. See section 6.2.1 of RFC6458.
+    ///
+    /// See [`sctp_subscribe_event`][`Self::sctp_subscribe_event`] for further details.
     pub fn sctp_unsubscribe_event(
         &self,
         event: SctpEvent,
@@ -94,13 +108,42 @@ impl SctpListener {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, false)
     }
 
-    /// Get's the status of the connection associated with the association ID
+    /// Setup parameters for a new association.
+    ///
+    /// To specify custom parameters for a new association this API is used.
+    pub fn sctp_setup_init_params(
+        &self,
+        ostreams: u16,
+        istreams: u16,
+        retries: u16,
+        timeout: u16,
+    ) -> std::io::Result<()> {
+        sctp_setup_init_params_internal(&self.inner, ostreams, istreams, retries, timeout)
+    }
+
+    /// Request to receive `SctpRcvInfo` ancillary data.
+    ///
+    /// SCTP allows receiving ancillary data about the curent data received on the given socket.
+    /// This API is used to obtain receive side additional info when the data is to be received.
+    pub fn sctp_request_rcvinfo(&self, on: bool) -> std::io::Result<()> {
+        request_rcvinfo_internal(&self.inner, on)
+    }
+
+    /// Request to receive `SctpNxtInfo` ancillary data.
+    ///
+    /// SCTP allows receiving ancillary data about the curent data received on the given socket.
+    /// This API is used to obtain information about the next datagram that will be received.
+    pub fn sctp_request_nxtinfo(&self, on: bool) -> std::io::Result<()> {
+        request_nxtinfo_internal(&self.inner, on)
+    }
+
+    /// Get the status of the connection associated with the association ID.
     pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
         sctp_get_status_internal(&self.inner, assoc_id)
     }
 
     // functions not part of public APIs
-    pub(crate) fn from_raw_fd(fd: RawFd) -> std::io::Result<Self> {
+    pub(crate) fn from_rawfd(fd: RawFd) -> std::io::Result<Self> {
         Ok(Self {
             inner: AsyncFd::new(fd)?,
         })
