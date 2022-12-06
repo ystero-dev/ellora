@@ -1,8 +1,8 @@
 [package]
 name = "sctp-rs"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2018"
-description = "Pure Rust implementation of RFC-6458 - Sockets API Extension for SCTP."
+description = "Idiomatic Rust APIs for Linux SCTP Stack."
 authors = [ "Abhijit Gadgil <gabhijit@iitbombay.org>"]
 categories = ["network-programming"]
 keywords = ["sctp"]

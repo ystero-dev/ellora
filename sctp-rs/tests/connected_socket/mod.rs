@@ -2,7 +2,7 @@ use sctp_rs::*;
 
 #[tokio::test]
 async fn bindx_not_supported() {
-    let connected = ConnectedSocket::from_rawfd(42);
+    let connected = ConnectedSocket::from_rawfd(100);
     assert!(connected.is_err(), "{:?}", connected.ok().unwrap());
 
     // TODO: Write real test
