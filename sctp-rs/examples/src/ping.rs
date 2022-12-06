@@ -23,14 +23,14 @@ async fn main() -> std::io::Result<()> {
     let server_address = matches.value_of("server").unwrap();
     let server_address: std::net::SocketAddr = server_address.parse().unwrap();
 
-    let client_socket = sctp_rs::SctpSocket::new_v4(sctp_rs::SocketToAssociation::OneToOne)?;
+    let client_socket = sctp_rs::Socket::new_v4(sctp_rs::SocketToAssociation::OneToOne)?;
 
     let (connected, assoc_id) = client_socket.sctp_connectx(&[server_address]).await?;
     eprintln!("conected: {:#?}, assoc_id: {}", connected, assoc_id);
 
     for i in 0..10 {
         let message = format!("sctp-rs ping : {}", i);
-        let send_data = sctp_rs::SctpSendData {
+        let send_data = sctp_rs::SendData {
             payload: message.as_bytes().to_vec(),
             snd_info: None,
         };

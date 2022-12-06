@@ -10,7 +10,7 @@ async fn socket_connect_basic_send_recv_req_info_on_and_off() {
     let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);
 
     let result =
-        client_socket.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Current);
+        client_socket.sctp_subscribe_event(Event::Association, SubscribeEventAssocId::Current);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     // Request Receive Info on client socket
@@ -33,7 +33,7 @@ async fn socket_connect_basic_send_recv_req_info_on_and_off() {
 
     let client_addr = laddrs.unwrap()[0];
 
-    let senddata = SctpSendData {
+    let senddata = SendData {
         payload: b"hello world!".to_vec(),
         snd_info: None,
     };
@@ -44,12 +44,12 @@ async fn socket_connect_basic_send_recv_req_info_on_and_off() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     let data = result.unwrap();
     assert!(
-        matches!(data, SctpNotificationOrData::Data(SctpReceivedData { .. })),
+        matches!(data, NotificationOrData::Data(ReceivedData { .. })),
         "{:#?}",
         data
     );
 
-    if let SctpNotificationOrData::Data(SctpReceivedData {
+    if let NotificationOrData::Data(ReceivedData {
         payload,
         rcv_info,
         nxt_info,
@@ -84,12 +84,12 @@ async fn socket_connect_basic_send_recv_req_info_on_and_off() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     let data = result.unwrap();
     assert!(
-        matches!(data, SctpNotificationOrData::Data(SctpReceivedData { .. })),
+        matches!(data, NotificationOrData::Data(ReceivedData { .. })),
         "{:#?}",
         data
     );
 
-    if let SctpNotificationOrData::Data(SctpReceivedData {
+    if let NotificationOrData::Data(ReceivedData {
         payload,
         rcv_info,
         nxt_info,
@@ -111,7 +111,7 @@ async fn socket_connect_basic_send_recv_req_info_on_and_off() {
 async fn socket_send_recv_nxtinfo_test() {
     let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);
     let result =
-        client_socket.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Current);
+        client_socket.sctp_subscribe_event(Event::Association, SubscribeEventAssocId::Current);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     // Request Receive Info on client socket
@@ -133,7 +133,7 @@ async fn socket_send_recv_nxtinfo_test() {
 
     let client_addr = laddrs.unwrap()[0];
 
-    let senddata = SctpSendData {
+    let senddata = SendData {
         payload: b"hello world!".to_vec(),
         snd_info: None,
     };
@@ -149,12 +149,12 @@ async fn socket_send_recv_nxtinfo_test() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     let data = result.unwrap();
     assert!(
-        matches!(data, SctpNotificationOrData::Data(SctpReceivedData { .. })),
+        matches!(data, NotificationOrData::Data(ReceivedData { .. })),
         "{:#?}",
         data
     );
 
-    if let SctpNotificationOrData::Data(SctpReceivedData {
+    if let NotificationOrData::Data(ReceivedData {
         payload,
         rcv_info,
         nxt_info,
@@ -176,12 +176,12 @@ async fn socket_send_recv_nxtinfo_test() {
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     let data = result.unwrap();
     assert!(
-        matches!(data, SctpNotificationOrData::Data(SctpReceivedData { .. })),
+        matches!(data, NotificationOrData::Data(ReceivedData { .. })),
         "{:#?}",
         data
     );
 
-    if let SctpNotificationOrData::Data(SctpReceivedData {
+    if let NotificationOrData::Data(ReceivedData {
         payload,
         rcv_info,
         nxt_info,
@@ -203,8 +203,7 @@ async fn socket_send_recv_nxtinfo_test() {
 async fn socket_init_params_set_ostreams_success() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
-    let result =
-        listener.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Future);
+    let result = listener.sctp_subscribe_event(Event::Association, SubscribeEventAssocId::Future);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     let client_ostreams = 100;
@@ -223,7 +222,7 @@ async fn socket_init_params_set_ostreams_success() {
     assert!(
         matches!(
             notification,
-            SctpNotificationOrData::Notification(SctpNotification::AssociationChange(
+            NotificationOrData::Notification(Notification::AssociationChange(
                 AssociationChange { .. }
             ))
         ),
@@ -231,13 +230,11 @@ async fn socket_init_params_set_ostreams_success() {
         notification
     );
 
-    if let SctpNotificationOrData::Notification(SctpNotification::AssociationChange(
-        AssociationChange {
-            ib_streams,
-            ob_streams,
-            ..
-        },
-    )) = notification
+    if let NotificationOrData::Notification(Notification::AssociationChange(AssociationChange {
+        ib_streams,
+        ob_streams,
+        ..
+    })) = notification
     {
         assert!(
             ib_streams == client_ostreams,

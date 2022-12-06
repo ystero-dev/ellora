@@ -23,7 +23,7 @@ async fn main() -> std::io::Result<()> {
     let server_address = matches.value_of("bind").unwrap();
     let server_address: std::net::SocketAddr = server_address.parse().unwrap();
 
-    let server_socket = sctp_rs::SctpSocket::new_v4(sctp_rs::SocketToAssociation::OneToOne)?;
+    let server_socket = sctp_rs::Socket::new_v4(sctp_rs::SocketToAssociation::OneToOne)?;
     server_socket.sctp_bindx(&[server_address], sctp_rs::BindxFlags::Add)?;
 
     let server_socket = server_socket.listen(10)?;
@@ -32,13 +32,13 @@ async fn main() -> std::io::Result<()> {
 
     loop {
         let received = accepted.sctp_recv().await?;
-        if let sctp_rs::SctpNotificationOrData::Data(data) = received {
+        if let sctp_rs::NotificationOrData::Data(data) = received {
             eprintln!("received: {:#?}", data);
             if data.payload.is_empty() {
                 break;
             }
             let response = format!("pong: {}", String::from_utf8(data.payload).unwrap());
-            let send_data = sctp_rs::SctpSendData {
+            let send_data = sctp_rs::SendData {
                 payload: response.as_bytes().to_vec(),
                 snd_info: None,
             };

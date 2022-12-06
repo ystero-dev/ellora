@@ -8,23 +8,23 @@ use tokio::io::unix::AsyncFd;
 #[allow(unused)]
 use crate::internal::*;
 use crate::{
-    types::SctpAssociationId, BindxFlags, SctpConnectedSocket, SctpEvent, SctpNotificationOrData,
-    SctpSendData, SctpStatus, SubscribeEventAssocId,
+    types::AssociationId, BindxFlags, ConnStatus, ConnectedSocket, Event, NotificationOrData,
+    SendData, SubscribeEventAssocId,
 };
 
 /// A structure representing a socket that is listening for incoming SCTP Connections.
 ///
-/// This structure is created by an [`crate::SctpSocket`] when it is bound to local address(es)
+/// This structure is created by an [`crate::Socket`] when it is bound to local address(es)
 /// and is waiting for incoming connections by calling the `listen` on the socket. The original
-/// [`crate::SctpSocket`] is consumed when this structure is created. See
-/// [`crate::SctpSocket::listen`] for more details.
-pub struct SctpListener {
+/// [`crate::Socket`] is consumed when this structure is created. See
+/// [`crate::Socket::listen`] for more details.
+pub struct Listener {
     inner: AsyncFd<RawFd>,
 }
 
-impl SctpListener {
+impl Listener {
     /// Accept on a given socket (valid only for `OneToOne` type sockets).
-    pub async fn accept(&self) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
+    pub async fn accept(&self) -> std::io::Result<(ConnectedSocket, SocketAddr)> {
         accept_internal(&self.inner).await
     }
 
@@ -43,26 +43,23 @@ impl SctpListener {
     /// Peels off a connected SCTP association from the listening socket. See: Section 9.2 RFC 6458
     ///
     /// This call is successful only for UDP style one to many sockets. This is like
-    /// `[crate::SctpListener::accept`] where peeled off socket behaves like a stand alone
+    /// `[crate::Listener::accept`] where peeled off socket behaves like a stand alone
     /// one-to-one socket.
-    pub fn sctp_peeloff(
-        &self,
-        assoc_id: SctpAssociationId,
-    ) -> std::io::Result<SctpConnectedSocket> {
+    pub fn sctp_peeloff(&self, assoc_id: AssociationId) -> std::io::Result<ConnectedSocket> {
         sctp_peeloff_internal(&self.inner, assoc_id)
     }
 
     /// Get Peer Address(es) for the given Association ID. See: Section 9.3 RFC 6458
     ///
-    /// This function is supported on the [`SctpListener`] because in the case of One to Many
+    /// This function is supported on the [`Listener`] because in the case of One to Many
     /// associations that are not peeled off, we are performing IO operations on the listening
     /// socket itself.
-    pub fn sctp_getpaddrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
+    pub fn sctp_getpaddrs(&self, assoc_id: AssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getpaddrs_internal(&self.inner, assoc_id)
     }
 
     /// Get's the Local Addresses for the association. See: Section 9.4 RFC 6458
-    pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
+    pub fn sctp_getladdrs(&self, assoc_id: AssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getladdrs_internal(&self.inner, assoc_id)
     }
 
@@ -72,7 +69,7 @@ impl SctpListener {
     /// without explicitly 'accept'ing or 'peeling off' the socket. The internal API used to
     /// receive the data is also the API used to receive notifications. This function returns
     /// either the notification (which the user should have subscribed for) or the data.
-    pub async fn sctp_recv(&self) -> std::io::Result<SctpNotificationOrData> {
+    pub async fn sctp_recv(&self) -> std::io::Result<NotificationOrData> {
         sctp_recvmsg_internal(&self.inner).await
     }
 
@@ -80,7 +77,7 @@ impl SctpListener {
     ///
     /// SCTP supports sending the actual SCTP message together with sending any anciliary data on
     /// the SCTP association. The anciliary data is optional.
-    pub async fn sctp_send(&self, to: SocketAddr, data: SctpSendData) -> std::io::Result<()> {
+    pub async fn sctp_send(&self, to: SocketAddr, data: SendData) -> std::io::Result<()> {
         sctp_sendmsg_internal(&self.inner, Some(to), data).await
     }
 
@@ -91,7 +88,7 @@ impl SctpListener {
     /// the events while receiving the data on the SCTP Socket.
     pub fn sctp_subscribe_event(
         &self,
-        event: SctpEvent,
+        event: Event,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, true)
@@ -102,7 +99,7 @@ impl SctpListener {
     /// See [`sctp_subscribe_event`][`Self::sctp_subscribe_event`] for further details.
     pub fn sctp_unsubscribe_event(
         &self,
-        event: SctpEvent,
+        event: Event,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, false)
@@ -121,7 +118,7 @@ impl SctpListener {
         sctp_setup_init_params_internal(&self.inner, ostreams, istreams, retries, timeout)
     }
 
-    /// Request to receive `SctpRcvInfo` ancillary data.
+    /// Request to receive `RcvInfo` ancillary data.
     ///
     /// SCTP allows receiving ancillary data about the curent data received on the given socket.
     /// This API is used to obtain receive side additional info when the data is to be received.
@@ -129,7 +126,7 @@ impl SctpListener {
         request_rcvinfo_internal(&self.inner, on)
     }
 
-    /// Request to receive `SctpNxtInfo` ancillary data.
+    /// Request to receive `NxtInfo` ancillary data.
     ///
     /// SCTP allows receiving ancillary data about the curent data received on the given socket.
     /// This API is used to obtain information about the next datagram that will be received.
@@ -138,7 +135,7 @@ impl SctpListener {
     }
 
     /// Get the status of the connection associated with the association ID.
-    pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
+    pub fn sctp_get_status(&self, assoc_id: AssociationId) -> std::io::Result<ConnStatus> {
         sctp_get_status_internal(&self.inner, assoc_id)
     }
 
@@ -150,8 +147,8 @@ impl SctpListener {
     }
 }
 
-impl Drop for SctpListener {
-    // Drop for `SctpListener`. We close the `inner` RawFd
+impl Drop for Listener {
+    // Drop for `Listener`. We close the `inner` RawFd
     fn drop(&mut self) {
         close_internal(&self.inner);
     }

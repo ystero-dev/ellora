@@ -6,8 +6,8 @@ use std::os::unix::io::RawFd;
 use tokio::io::unix::AsyncFd;
 
 use crate::{
-    BindxFlags, SctpAssociationId, SctpConnectedSocket, SctpEvent, SctpListener, SctpStatus,
-    SocketToAssociation, SubscribeEventAssocId,
+    AssociationId, BindxFlags, ConnStatus, ConnectedSocket, Event, Listener, SocketToAssociation,
+    SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -15,14 +15,14 @@ use super::internal::*;
 
 /// A structure representing and unconnected SCTP Socket.
 ///
-/// When we `listen` on this socket, we get an [`SctpListener`] on which we can `accept` to
-/// get a [`SctpConnectedSocket`] (This is like `TCPStream` but since this can have multiple
+/// When we `listen` on this socket, we get an [`Listener`] on which we can `accept` to
+/// get a [`ConnectedSocket`] (This is like `TCPStream` but since this can have multiple
 /// associations, we are calling it a 'connected' socket).
-pub struct SctpSocket {
+pub struct Socket {
     inner: AsyncFd<RawFd>,
 }
 
-impl SctpSocket {
+impl Socket {
     /// Create a New IPv4 family socket.
     ///
     /// [`SocketToAssociation`] determines the type of the socket created. For a TCP style
@@ -61,19 +61,19 @@ impl SctpSocket {
 
     /// Listen on a given socket.
     ///
-    /// This successful operation  returns [`SctpListener`] consuming this structure. The `backlog`
+    /// This successful operation  returns [`Listener`] consuming this structure. The `backlog`
     /// parameter determines the length of the listen queue.
-    pub fn listen(self, backlog: i32) -> std::io::Result<SctpListener> {
+    pub fn listen(self, backlog: i32) -> std::io::Result<Listener> {
         sctp_listen_internal(self.inner, backlog)
     }
 
     /// Connect to SCTP Server.
     ///
-    /// The successful operation returns [`SctpConnectedSocket`] consuming this structure.
+    /// The successful operation returns [`ConnectedSocket`] consuming this structure.
     pub async fn connect(
         self,
         addr: SocketAddr,
-    ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
+    ) -> std::io::Result<(ConnectedSocket, AssociationId)> {
         sctp_connectx_internal(self.inner, &[addr]).await
     }
 
@@ -93,13 +93,13 @@ impl SctpSocket {
     /// Connect to a multi-homed Peer. See Section 9.9 RFC 6458
     ///
     /// An Unbound socket when connected to a remote end would return a tuple containing a
-    /// [connected socket][`SctpConnectedSocket`] and an [associaton ID][`SctpAssociationId`]. In
+    /// [connected socket][`ConnectedSocket`] and an [associaton ID][`AssociationId`]. In
     /// the case of One-to-many sockets, this association ID can be used for subscribing to SCTP
     /// events and requesting additional anciliary control data on the socket.
     pub async fn sctp_connectx(
         self,
         addrs: &[SocketAddr],
-    ) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
+    ) -> std::io::Result<(ConnectedSocket, AssociationId)> {
         sctp_connectx_internal(self.inner, addrs).await
     }
 
@@ -110,7 +110,7 @@ impl SctpSocket {
     /// the events while receiving the data on the SCTP Socket.
     pub fn sctp_subscribe_event(
         &self,
-        event: SctpEvent,
+        event: Event,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, true)
@@ -121,7 +121,7 @@ impl SctpSocket {
     /// See [`sctp_subscribe_event`][`Self::sctp_subscribe_event`] for further details.
     pub fn sctp_unsubscribe_event(
         &self,
-        event: SctpEvent,
+        event: Event,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, false)
@@ -140,7 +140,7 @@ impl SctpSocket {
         sctp_setup_init_params_internal(&self.inner, ostreams, istreams, retries, timeout)
     }
 
-    /// Request to receive `SctpRcvInfo` ancillary data.
+    /// Request to receive `RcvInfo` ancillary data.
     ///
     /// SCTP allows receiving ancillary data about the curent data received on the given socket.
     /// This API is used to obtain receive side additional info when the data is to be received.
@@ -148,7 +148,7 @@ impl SctpSocket {
         request_rcvinfo_internal(&self.inner, on)
     }
 
-    /// Request to receive `SctpNxtInfo` ancillary data.
+    /// Request to receive `NxtInfo` ancillary data.
     ///
     /// SCTP allows receiving ancillary data about the curent data received on the given socket.
     /// This API is used to obtain information about the next datagram that will be received.
@@ -157,7 +157,7 @@ impl SctpSocket {
     }
 
     /// Get the status of the connection associated with the association ID.
-    pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
+    pub fn sctp_get_status(&self, assoc_id: AssociationId) -> std::io::Result<ConnStatus> {
         sctp_get_status_internal(&self.inner, assoc_id)
     }
 }

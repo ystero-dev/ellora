@@ -60,8 +60,7 @@ async fn listening_socket_no_connect_peeloff_failure() {
 async fn listening_socket_one2one_connected_peeloff_failure() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
 
-    let result =
-        listener.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Future);
+    let result = listener.sctp_subscribe_event(Event::Association, SubscribeEventAssocId::Future);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     let client_socket = create_client_socket(SocketToAssociation::OneToOne, true);
@@ -77,8 +76,7 @@ async fn listening_socket_one2one_connected_peeloff_failure() {
 async fn listening_socket_one2many_connected_peeloff_success() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
-    let result =
-        listener.sctp_subscribe_event(SctpEvent::Association, SubscribeEventAssocId::Future);
+    let result = listener.sctp_subscribe_event(Event::Association, SubscribeEventAssocId::Future);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);
@@ -93,7 +91,7 @@ async fn listening_socket_one2many_connected_peeloff_success() {
     assert!(
         matches!(
             notification,
-            SctpNotificationOrData::Notification(SctpNotification::AssociationChange(
+            NotificationOrData::Notification(Notification::AssociationChange(
                 AssociationChange { .. }
             ))
         ),
@@ -101,19 +99,15 @@ async fn listening_socket_one2many_connected_peeloff_success() {
         notification
     );
 
-    if let SctpNotificationOrData::Notification(SctpNotification::AssociationChange(
-        AssociationChange {
-            assoc_id, state, ..
-        },
-    )) = notification
+    if let NotificationOrData::Notification(Notification::AssociationChange(AssociationChange {
+        assoc_id,
+        state,
+        ..
+    })) = notification
     {
         let received = listener.sctp_peeloff(assoc_id);
         assert!(received.is_ok(), "{:#?}", received.err().unwrap());
-        assert!(
-            state == SctpAssocChangeState::SctpCommUp as u16,
-            "{}",
-            state
-        );
+        assert!(state == AssocChangeState::CommUp as u16, "{}", state);
     } else {
         assert!(false, "Should never come here!: {:#?}", notification);
     };

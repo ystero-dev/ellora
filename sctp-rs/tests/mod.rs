@@ -2,18 +2,18 @@
 
 static TEST_PORT_NO: AtomicU16 = AtomicU16::new(8080);
 
-use sctp_rs::{SctpListener, SctpSocket, SocketToAssociation};
+use sctp_rs::{Listener, Socket, SocketToAssociation};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU16, Ordering};
 
 fn create_socket_bind_and_listen(
     association: SocketToAssociation,
     v4: bool,
-) -> (SctpListener, SocketAddr) {
+) -> (Listener, SocketAddr) {
     let sctp_socket = if v4 {
-        SctpSocket::new_v4(association)
+        Socket::new_v4(association)
     } else {
-        SctpSocket::new_v6(association)
+        Socket::new_v6(association)
     };
     assert!(sctp_socket.is_ok(), "{:#?}", sctp_socket.err().unwrap());
     let sctp_socket = sctp_socket.unwrap();
@@ -30,11 +30,11 @@ fn create_socket_bind_and_listen(
     (listener.unwrap(), bindaddr)
 }
 
-fn create_client_socket(association: SocketToAssociation, v4: bool) -> SctpSocket {
+fn create_client_socket(association: SocketToAssociation, v4: bool) -> Socket {
     let client_socket = if v4 {
-        SctpSocket::new_v4(association)
+        Socket::new_v4(association)
     } else {
-        SctpSocket::new_v6(association)
+        Socket::new_v6(association)
     };
     assert!(client_socket.is_ok(), "{:#?}", client_socket.err().unwrap());
 

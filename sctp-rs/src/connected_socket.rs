@@ -8,7 +8,7 @@ use std::os::unix::io::RawFd;
 #[allow(unused)]
 use crate::internal::*;
 use crate::{
-    BindxFlags, SctpAssociationId, SctpEvent, SctpNotificationOrData, SctpSendData, SctpStatus,
+    AssociationId, BindxFlags, ConnStatus, Event, NotificationOrData, SendData,
     SubscribeEventAssocId,
 };
 
@@ -16,24 +16,24 @@ use crate::{
 ///
 /// A Connected SCTP Socket is associated with one or more Peer associations (each of which is
 /// identified by an Association ID). A Connected SCTP Socket will be created by an
-/// [`SctpListener`][crate::SctpListener] when it calls an `accept` (in the case of One to One style sockets) or upon
+/// [`Listener`][crate::Listener] when it calls an `accept` (in the case of One to One style sockets) or upon
 /// receiving a `SCTP_COMM_UP` event in `SCTP_ASSOC_CHANGE` notification.
 ///
-/// It is also possible to [`peeloff`][crate::SctpListener::sctp_peeloff] a socket from One to Many
-/// listening socket and the peeled socket is an [`SctpConnectedSocket`].
+/// It is also possible to [`peeloff`][crate::Listener::sctp_peeloff] a socket from One to Many
+/// listening socket and the peeled socket is an [`ConnectedSocket`].
 #[derive(Debug)]
-pub struct SctpConnectedSocket {
+pub struct ConnectedSocket {
     inner: AsyncFd<RawFd>,
 }
 
-impl SctpConnectedSocket {
-    /// Creates new [`SctpConnectedSocket`] from a [`RawFd`][std::os::unix::io::RawFd].
+impl ConnectedSocket {
+    /// Creates new [`ConnectedSocket`] from a [`RawFd`][std::os::unix::io::RawFd].
     ///
     /// TODO: Remove this from Public API
     /// Although, this is available as public API as of now, likely the users are not required to
-    /// use this. Mostly [`accept`][`crate::SctpListener::accept`] (in the case of One to One
-    /// Socket to Association) or [`peeloff`][`crate::SctpListener::sctp_peeloff`] (in the case of
-    /// One to Many Association) would use this API to create new [`SctpConnectedSocket`].
+    /// use this. Mostly [`accept`][`crate::Listener::accept`] (in the case of One to One
+    /// Socket to Association) or [`peeloff`][`crate::Listener::sctp_peeloff`] (in the case of
+    /// One to Many Association) would use this API to create new [`ConnectedSocket`].
     pub fn from_rawfd(rawfd: RawFd) -> std::io::Result<Self> {
         Ok(Self {
             inner: AsyncFd::new(rawfd)?,
@@ -57,12 +57,12 @@ impl SctpConnectedSocket {
     }
 
     /// Get Peer addresses for the association. See Section 9.3 RFC 6458.
-    pub fn sctp_getpaddrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
+    pub fn sctp_getpaddrs(&self, assoc_id: AssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getpaddrs_internal(&self.inner, assoc_id)
     }
 
     /// Get Local addresses for the association. See section 9.5 RFC 6458.
-    pub fn sctp_getladdrs(&self, assoc_id: SctpAssociationId) -> std::io::Result<Vec<SocketAddr>> {
+    pub fn sctp_getladdrs(&self, assoc_id: AssociationId) -> std::io::Result<Vec<SocketAddr>> {
         sctp_getladdrs_internal(&self.inner, assoc_id)
     }
 
@@ -72,7 +72,7 @@ impl SctpConnectedSocket {
     /// without explicitly 'accept'ing or 'peeling off' the socket. The internal API used to
     /// receive the data is also the API used to receive notifications. This function returns
     /// either the notification (which the user should have subscribed for) or the data.
-    pub async fn sctp_recv(&self) -> std::io::Result<SctpNotificationOrData> {
+    pub async fn sctp_recv(&self) -> std::io::Result<NotificationOrData> {
         sctp_recvmsg_internal(&self.inner).await
     }
 
@@ -80,7 +80,7 @@ impl SctpConnectedSocket {
     ///
     /// SCTP supports sending the actual SCTP message together with sending any anciliary data on
     /// the SCTP association. The anciliary data is optional.
-    pub async fn sctp_send(&self, data: SctpSendData) -> std::io::Result<()> {
+    pub async fn sctp_send(&self, data: SendData) -> std::io::Result<()> {
         sctp_sendmsg_internal(&self.inner, None, data).await
     }
 
@@ -91,7 +91,7 @@ impl SctpConnectedSocket {
     /// the events while receiving the data on the SCTP Socket.
     pub fn sctp_subscribe_event(
         &self,
-        event: SctpEvent,
+        event: Event,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, true)
@@ -102,13 +102,13 @@ impl SctpConnectedSocket {
     /// See [`sctp_subscribe_event`][`Self::sctp_subscribe_event`] for further details.
     pub fn sctp_unsubscribe_event(
         &self,
-        event: SctpEvent,
+        event: Event,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, false)
     }
 
-    /// Request to receive `SctpRcvInfo` ancillary data.
+    /// Request to receive `RcvInfo` ancillary data.
     ///
     /// SCTP allows receiving ancillary data about the curent data received on the given socket.
     /// This API is used to obtain receive side additional info when the data is to be received.
@@ -116,7 +116,7 @@ impl SctpConnectedSocket {
         request_rcvinfo_internal(&self.inner, on)
     }
 
-    /// Request to receive `SctpNxtInfo` ancillary data.
+    /// Request to receive `NxtInfo` ancillary data.
     ///
     /// SCTP allows receiving ancillary data about the curent data received on the given socket.
     /// This API is used to obtain information about the next datagram that will be received.
@@ -125,13 +125,13 @@ impl SctpConnectedSocket {
     }
 
     /// Get the status of the connection associated with the association ID.
-    pub fn sctp_get_status(&self, assoc_id: SctpAssociationId) -> std::io::Result<SctpStatus> {
+    pub fn sctp_get_status(&self, assoc_id: AssociationId) -> std::io::Result<ConnStatus> {
         sctp_get_status_internal(&self.inner, assoc_id)
     }
 }
 
-impl Drop for SctpConnectedSocket {
-    // Drop for `SctpConnectedSocket`. We close the `inner` RawFd
+impl Drop for ConnectedSocket {
+    // Drop for `ConnectedSocket`. We close the `inner` RawFd
     fn drop(&mut self) {
         close_internal(&self.inner);
     }

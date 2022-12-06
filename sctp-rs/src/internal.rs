@@ -11,11 +11,11 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
-use crate::types::internal::{SctpConnectxParam, SctpGetAddrs, SctpInitMsg, SctpSubscribeEvent};
+use crate::types::internal::{ConnectxParam, GetAddrs, InitMsg, SubscribeEvent};
 use crate::{
-    AssociationChange, BindxFlags, SctpAssociationId, SctpCmsgType, SctpConnectedSocket, SctpEvent,
-    SctpListener, SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo,
-    SctpReceivedData, SctpSendData, SctpSendInfo, SctpStatus, SubscribeEventAssocId,
+    AssociationChange, AssociationId, BindxFlags, CmsgType, ConnStatus, ConnectedSocket, Event,
+    Listener, Notification, NotificationOrData, NxtInfo, RcvInfo, ReceivedData, SendData, SendInfo,
+    SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -71,13 +71,12 @@ pub(crate) fn sctp_bindx_internal(
 // Implementation of `sctp_peeloff` using `libc::getsockopt`
 pub(crate) fn sctp_peeloff_internal(
     fd: &AsyncFd<RawFd>,
-    assoc_id: SctpAssociationId,
-) -> std::io::Result<SctpConnectedSocket> {
-    use crate::types::internal::SctpPeeloffArg;
+    assoc_id: AssociationId,
+) -> std::io::Result<ConnectedSocket> {
+    use crate::types::internal::PeeloffArg;
 
-    let mut peeloff_arg = SctpPeeloffArg::from_assoc_id(assoc_id);
-    let mut peeloff_size: libc::socklen_t =
-        std::mem::size_of::<SctpPeeloffArg>() as libc::socklen_t;
+    let mut peeloff_arg = PeeloffArg::from_assoc_id(assoc_id);
+    let mut peeloff_size: libc::socklen_t = std::mem::size_of::<PeeloffArg>() as libc::socklen_t;
 
     // Safety Pointer to `peeloff_arg` and `peeloff_size` is valid as the variable is still in the
     // scope
@@ -97,7 +96,7 @@ pub(crate) fn sctp_peeloff_internal(
             let rawfd = peeloff_arg.sd.as_raw_fd();
             set_fd_non_blocking(rawfd)?;
 
-            SctpConnectedSocket::from_rawfd(rawfd)
+            ConnectedSocket::from_rawfd(rawfd)
         }
     }
 }
@@ -127,10 +126,7 @@ pub(crate) fn sctp_socket_internal(
 }
 
 // Implementation of `listen` using `libc::listen`
-pub(crate) fn sctp_listen_internal(
-    fd: AsyncFd<RawFd>,
-    backlog: i32,
-) -> std::io::Result<SctpListener> {
+pub(crate) fn sctp_listen_internal(fd: AsyncFd<RawFd>, backlog: i32) -> std::io::Result<Listener> {
     unsafe {
         let rawfd = *fd.get_ref();
         let result = libc::listen(rawfd, backlog);
@@ -138,7 +134,7 @@ pub(crate) fn sctp_listen_internal(
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {
-            SctpListener::from_rawfd(fd.into_inner())
+            Listener::from_rawfd(fd.into_inner())
         }
     }
 }
@@ -146,7 +142,7 @@ pub(crate) fn sctp_listen_internal(
 // Implmentation of `sctp_getpaddrs` using `libc::getsockopt`
 pub(crate) fn sctp_getpaddrs_internal(
     fd: &AsyncFd<RawFd>,
-    assoc_id: SctpAssociationId,
+    assoc_id: AssociationId,
 ) -> std::io::Result<Vec<SocketAddr>> {
     sctp_getaddrs_internal(*fd.get_ref(), SCTP_GET_PEER_ADDRS, assoc_id)
 }
@@ -154,7 +150,7 @@ pub(crate) fn sctp_getpaddrs_internal(
 // Implmentation of `sctp_getladdrs` using `libc::getsockopt`
 pub(crate) fn sctp_getladdrs_internal(
     fd: &AsyncFd<RawFd>,
-    assoc_id: SctpAssociationId,
+    assoc_id: AssociationId,
 ) -> std::io::Result<Vec<SocketAddr>> {
     sctp_getaddrs_internal(*fd.get_ref(), SCTP_GET_LOCAL_ADDRS, assoc_id)
 }
@@ -163,7 +159,7 @@ pub(crate) fn sctp_getladdrs_internal(
 fn sctp_getaddrs_internal(
     fd: RawFd,
     flags: libc::c_int,
-    assoc_id: SctpAssociationId,
+    assoc_id: AssociationId,
 ) -> std::io::Result<Vec<SocketAddr>> {
     let capacity = 256_usize;
     let mut addrs_buff: Vec<u8> = vec![0; capacity];
@@ -173,7 +169,7 @@ fn sctp_getaddrs_internal(
     // for most of the calls to get local or peer addresses. Even if it is not sufficient, the call
     // to `getsockopt` would return an error, thus the memory won't be overwritten.
     unsafe {
-        let mut getaddrs_ptr = addrs_buff.as_mut_ptr() as *mut SctpGetAddrs;
+        let mut getaddrs_ptr = addrs_buff.as_mut_ptr() as *mut GetAddrs;
         (*getaddrs_ptr).assoc_id = assoc_id;
         let getaddrs_size_ptr = std::ptr::addr_of_mut!(getaddrs_size);
         let result = libc::getsockopt(
@@ -232,7 +228,7 @@ fn sctp_getaddrs_internal(
 pub(crate) async fn sctp_connectx_internal(
     fd: AsyncFd<RawFd>,
     addrs: &[SocketAddr],
-) -> std::io::Result<(SctpConnectedSocket, SctpAssociationId)> {
+) -> std::io::Result<(ConnectedSocket, AssociationId)> {
     let mut addrs_u8: Vec<u8> = vec![];
 
     for addr in addrs {
@@ -247,13 +243,13 @@ pub(crate) async fn sctp_connectx_internal(
     // Safety: The passed vector is valid during the function call and hence the passed reference
     // to raw data is valid.
     unsafe {
-        let mut params = SctpConnectxParam {
+        let mut params = ConnectxParam {
             assoc_id: 0,
             addrs_size: addrs_len.try_into().unwrap(),
             addrs: addrs_u8.as_mut_ptr(),
         };
 
-        let mut params_size = std::mem::size_of::<SctpConnectxParam>() as libc::socklen_t;
+        let mut params_size = std::mem::size_of::<ConnectxParam>() as libc::socklen_t;
 
         let result = libc::getsockopt(
             raw_fd,
@@ -285,13 +281,13 @@ pub(crate) async fn sctp_connectx_internal(
         eprintln!("sctp_status.state: {:#?}", sctp_status.unwrap().state);
 
         // We can (and should) now 'consume' the passed `fd` or else 'registration' of next
-        // `SctpConnectedSocket` (during `AsyncFd::new` would fail. Consuming the `AsyncFd` would
+        // `ConnectedSocket` (during `AsyncFd::new` would fail. Consuming the `AsyncFd` would
         // de-register.)
         // Also, since this `fd` is the 'original' created with `socket` call, no need to set it to
         // non-blocking again.
         let rawfd = fd.into_inner();
 
-        Ok((SctpConnectedSocket::from_rawfd(rawfd)?, params.assoc_id))
+        Ok((ConnectedSocket::from_rawfd(rawfd)?, params.assoc_id))
     }
 }
 
@@ -299,7 +295,7 @@ pub(crate) async fn sctp_connectx_internal(
 // type is not the right one (UDP Style `SOCK_SEQPACKET`).
 pub(crate) async fn accept_internal(
     fd: &AsyncFd<RawFd>,
-) -> std::io::Result<(SctpConnectedSocket, SocketAddr)> {
+) -> std::io::Result<(ConnectedSocket, SocketAddr)> {
     // Safety: Both `addrs_buff` and `addrs_len` are in the scope and hence are valid pointers.
     unsafe {
         let raw_fd = *fd.get_ref();
@@ -347,16 +343,13 @@ pub(crate) async fn accept_internal(
 
                 set_fd_non_blocking(result as RawFd)?;
 
-                return Ok((
-                    SctpConnectedSocket::from_rawfd(result as RawFd)?,
-                    socketaddr,
-                ));
+                return Ok((ConnectedSocket::from_rawfd(result as RawFd)?, socketaddr));
             }
         }
     }
 }
 
-// Shutdown implementation for `SctpListener` and `SctpConnectedSocket`.
+// Shutdown implementation for `Listener` and `ConnectedSocket`.
 pub(crate) fn shutdown_internal(
     fd: &AsyncFd<RawFd>,
     how: std::net::Shutdown,
@@ -385,7 +378,7 @@ pub(crate) fn shutdown_internal(
 // TODO: Handle Control Message Header
 pub(crate) async fn sctp_recvmsg_internal(
     fd: &AsyncFd<RawFd>,
-) -> std::io::Result<SctpNotificationOrData> {
+) -> std::io::Result<NotificationOrData> {
     let mut recv_buffer = vec![0_u8; 4096];
     let mut recv_iov = libc::iovec {
         iov_base: recv_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
@@ -395,7 +388,7 @@ pub(crate) async fn sctp_recvmsg_internal(
     // Safety: wrapper over `libc` call. the size of the structures are wellknown.
     let msg_control_size = unsafe {
         libc::CMSG_SPACE(
-            std::mem::size_of::<SctpRcvInfo>() as u32 + std::mem::size_of::<SctpNxtInfo>() as u32,
+            std::mem::size_of::<RcvInfo>() as u32 + std::mem::size_of::<NxtInfo>() as u32,
         )
     };
     let mut msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
@@ -432,9 +425,9 @@ pub(crate) async fn sctp_recvmsg_internal(
                 recv_buffer.truncate(result as usize);
 
                 if received_flags & MSG_NOTIFICATION != 0 {
-                    return Ok(SctpNotificationOrData::Notification(
-                        notification_from_message(&recv_buffer),
-                    ));
+                    return Ok(NotificationOrData::Notification(notification_from_message(
+                        &recv_buffer,
+                    )));
                 } else {
                     let mut rcv_info = None;
                     let mut nxt_info = None;
@@ -447,24 +440,24 @@ pub(crate) async fn sctp_recvmsg_internal(
                             continue;
                         }
 
-                        if (*cmsghdr).cmsg_type == SctpCmsgType::SctpRcvInfo as i32 {
-                            let mut recv_info_internal = SctpRcvInfo::default();
+                        if (*cmsghdr).cmsg_type == CmsgType::RcvInfo as i32 {
+                            let mut recv_info_internal = RcvInfo::default();
                             let cmsg_data = libc::CMSG_DATA(cmsghdr);
                             std::ptr::copy(
                                 cmsg_data,
                                 &mut recv_info_internal as *mut _ as *mut u8,
-                                std::mem::size_of::<SctpRcvInfo>(),
+                                std::mem::size_of::<RcvInfo>(),
                             );
                             rcv_info = Some(recv_info_internal);
                         }
 
-                        if (*cmsghdr).cmsg_type == SctpCmsgType::SctpNxtInfo as i32 {
-                            let mut nxt_info_internal = SctpNxtInfo::default();
+                        if (*cmsghdr).cmsg_type == CmsgType::NxtInfo as i32 {
+                            let mut nxt_info_internal = NxtInfo::default();
                             let cmsg_data = libc::CMSG_DATA(cmsghdr);
                             std::ptr::copy(
                                 cmsg_data,
                                 &mut nxt_info_internal as *mut _ as *mut u8,
-                                std::mem::size_of::<SctpNxtInfo>(),
+                                std::mem::size_of::<NxtInfo>(),
                             );
                             nxt_info = Some(nxt_info_internal);
                         }
@@ -475,7 +468,7 @@ pub(crate) async fn sctp_recvmsg_internal(
                         );
                     }
 
-                    return Ok(SctpNotificationOrData::Data(SctpReceivedData {
+                    return Ok(NotificationOrData::Data(ReceivedData {
                         payload: recv_buffer,
                         rcv_info,
                         nxt_info,
@@ -490,7 +483,7 @@ pub(crate) async fn sctp_recvmsg_internal(
 pub(crate) async fn sctp_sendmsg_internal(
     fd: &AsyncFd<RawFd>,
     to: Option<SocketAddr>,
-    data: SctpSendData,
+    data: SendData,
 ) -> std::io::Result<()> {
     let mut send_iov = libc::iovec {
         iov_base: data.payload.as_ptr() as *mut libc::c_void,
@@ -510,8 +503,7 @@ pub(crate) async fn sctp_sendmsg_internal(
     // TODO: Support copy and other send info as well.
     let (msg_control, msg_control_size) = if data.snd_info.is_some() {
         // Safety: wrapper over `libc` call. the size of the structures are wellknown.
-        let msg_control_size =
-            unsafe { libc::CMSG_SPACE(std::mem::size_of::<SctpSendInfo>() as u32) };
+        let msg_control_size = unsafe { libc::CMSG_SPACE(std::mem::size_of::<SendInfo>() as u32) };
         let msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
         (
             msg_control.as_ptr() as *mut libc::c_void,
@@ -548,7 +540,7 @@ pub(crate) async fn sctp_sendmsg_internal(
     }
 }
 
-fn notification_from_message(data: &[u8]) -> SctpNotification {
+fn notification_from_message(data: &[u8]) -> Notification {
     let notification_type = u16::from_ne_bytes(data[0..2].try_into().unwrap());
     eprintln!(
         "notification_type: {:x}, SCTP_ASSOC_CHANGE: {:x}",
@@ -567,20 +559,20 @@ fn notification_from_message(data: &[u8]) -> SctpNotification {
                 assoc_id: i32::from_ne_bytes(data[16..20].try_into().unwrap()),
                 info: data[20..].into(),
             };
-            SctpNotification::AssociationChange(assoc_change)
+            Notification::AssociationChange(assoc_change)
         }
-        _ => SctpNotification::Unsupported,
+        _ => Notification::Unsupported,
     }
 }
 
 // Implementation of Event Subscription
 pub(crate) fn sctp_subscribe_event_internal(
     fd: &AsyncFd<RawFd>,
-    event: SctpEvent,
+    event: Event,
     assoc_id: SubscribeEventAssocId,
     on: bool,
 ) -> std::io::Result<()> {
-    let subscriber = SctpSubscribeEvent {
+    let subscriber = SubscribeEvent {
         event,
         assoc_id: assoc_id.into(),
         on,
@@ -592,9 +584,7 @@ pub(crate) fn sctp_subscribe_event_internal(
             SOL_SCTP,
             SCTP_EVENT,
             &subscriber as *const _ as *const libc::c_void,
-            std::mem::size_of::<SctpSubscribeEvent>()
-                .try_into()
-                .unwrap(),
+            std::mem::size_of::<SubscribeEvent>().try_into().unwrap(),
         );
         if result < 0 {
             Err(std::io::Error::last_os_error())
@@ -612,7 +602,7 @@ pub(crate) fn sctp_setup_init_params_internal(
     retries: u16,
     timeout: u16,
 ) -> std::io::Result<()> {
-    let init_params = SctpInitMsg {
+    let init_params = InitMsg {
         ostreams,
         istreams,
         retries,
@@ -625,7 +615,7 @@ pub(crate) fn sctp_setup_init_params_internal(
             SOL_SCTP,
             SCTP_INITMSG,
             &init_params as *const _ as *const libc::c_void,
-            std::mem::size_of::<SctpInitMsg>().try_into().unwrap(),
+            std::mem::size_of::<InitMsg>().try_into().unwrap(),
         );
         if result < 0 {
             Err(std::io::Error::last_os_error())
@@ -635,7 +625,7 @@ pub(crate) fn sctp_setup_init_params_internal(
     }
 }
 
-// Enable/Disable reception of `SctpRcvInfo` actual call.
+// Enable/Disable reception of `RcvInfo` actual call.
 pub(crate) fn request_rcvinfo_internal(fd: &AsyncFd<RawFd>, on: bool) -> std::io::Result<()> {
     let enable: libc::socklen_t = u32::from(on);
     let enable_size = std::mem::size_of::<libc::socklen_t>();
@@ -657,7 +647,7 @@ pub(crate) fn request_rcvinfo_internal(fd: &AsyncFd<RawFd>, on: bool) -> std::io
     }
 }
 
-// Enable/Disable reception of `SctpNxtInfo` actual call.
+// Enable/Disable reception of `NxtInfo` actual call.
 pub(crate) fn request_nxtinfo_internal(fd: &AsyncFd<RawFd>, on: bool) -> std::io::Result<()> {
     let enable: libc::socklen_t = u32::from(on);
     let enable_size = std::mem::size_of::<libc::socklen_t>();
@@ -682,10 +672,10 @@ pub(crate) fn request_nxtinfo_internal(fd: &AsyncFd<RawFd>, on: bool) -> std::io
 // Get the status for the given Assoc ID
 pub(crate) fn sctp_get_status_internal(
     fd: &AsyncFd<RawFd>,
-    assoc_id: SctpAssociationId,
-) -> std::io::Result<SctpStatus> {
-    let status_ptr = std::mem::MaybeUninit::<SctpStatus>::zeroed();
-    let mut status_size = std::mem::size_of::<SctpStatus>();
+    assoc_id: AssociationId,
+) -> std::io::Result<ConnStatus> {
+    let status_ptr = std::mem::MaybeUninit::<ConnStatus>::zeroed();
+    let mut status_size = std::mem::size_of::<ConnStatus>();
 
     unsafe {
         let mut sctp_status = status_ptr.assume_init();

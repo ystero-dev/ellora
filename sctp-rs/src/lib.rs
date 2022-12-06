@@ -22,7 +22,7 @@
 //! # async fn main() -> std::io::Result<()> {
 //!
 //! // Create a TCP Style (Socket-to-association is 1-1) socket.
-//! let client = sctp_rs::SctpSocket::new_v4(sctp_rs::SocketToAssociation::OneToOne)?;
+//! let client = sctp_rs::Socket::new_v4(sctp_rs::SocketToAssociation::OneToOne)?;
 //!
 //! let bind_addr: std::net::SocketAddr = "127.0.0.1:8080".parse().unwrap();
 //! client.bind(bind_addr)?;
@@ -42,13 +42,13 @@ mod listener;
 mod socket;
 
 #[doc(inline)]
-pub use socket::SctpSocket;
+pub use socket::Socket;
 
 #[doc(inline)]
-pub use listener::SctpListener;
+pub use listener::Listener;
 
 #[doc(inline)]
-pub use connected_socket::SctpConnectedSocket;
+pub use connected_socket::ConnectedSocket;
 
 mod internal;
 
@@ -58,8 +58,7 @@ mod types;
 
 #[doc(inline)]
 pub use types::{
-    AssociationChange, BindxFlags, SctpAssocChangeState, SctpAssociationId, SctpCmsgType,
-    SctpEvent, SctpNotification, SctpNotificationOrData, SctpNxtInfo, SctpRcvInfo,
-    SctpReceivedData, SctpSendData, SctpSendInfo, SctpStatus, SocketToAssociation,
-    SubscribeEventAssocId,
+    AssocChangeState, AssociationChange, AssociationId, BindxFlags, CmsgType, ConnStatus, Event,
+    Notification, NotificationOrData, NxtInfo, RcvInfo, ReceivedData, SendData, SendInfo,
+    SocketToAssociation, SubscribeEventAssocId,
 };
