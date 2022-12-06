@@ -194,18 +194,20 @@ fn sctp_getaddrs_internal(
                 // each of the addresses accordingly and update the pointer.
                 let sa_family = (*(sockaddr_ptr as *const _ as *const libc::sockaddr)).sa_family;
                 if sa_family as i32 == libc::AF_INET {
-                    let os_socketaddr = OsSocketAddr::from_raw_parts(
-                        sockaddr_ptr as *const _ as *const u8,
-                        std::mem::size_of::<libc::sockaddr_in>(),
+                    let os_socketaddr = OsSocketAddr::copy_from_raw(
+                        sockaddr_ptr as *const _ as *const libc::sockaddr,
+                        std::mem::size_of::<libc::sockaddr_in>().try_into().unwrap(),
                     );
                     let socketaddr = os_socketaddr.into_addr().unwrap();
                     peeraddrs.push(socketaddr);
                     sockaddr_ptr = sockaddr_ptr
                         .offset(std::mem::size_of::<libc::sockaddr_in>().try_into().unwrap());
                 } else if sa_family as i32 == libc::AF_INET6 {
-                    let os_socketaddr = OsSocketAddr::from_raw_parts(
-                        sockaddr_ptr as *const _ as *const u8,
-                        std::mem::size_of::<libc::sockaddr_in6>(),
+                    let os_socketaddr = OsSocketAddr::copy_from_raw(
+                        sockaddr_ptr as *const _ as *const libc::sockaddr,
+                        std::mem::size_of::<libc::sockaddr_in6>()
+                            .try_into()
+                            .unwrap(),
                     );
                     let socketaddr = os_socketaddr.into_addr().unwrap();
                     peeraddrs.push(socketaddr);
@@ -334,7 +336,10 @@ pub(crate) async fn accept_internal(
                 // We got an `EWOULDBLOCK` let's wait.
                 let _guard = fd.readable().await?;
             } else {
-                let os_socketaddr = OsSocketAddr::from_raw_parts(addrs_buff.as_ptr(), addrs_len);
+                let os_socketaddr = OsSocketAddr::copy_from_raw(
+                    addrs_buff.as_ptr() as *const _ as *const libc::sockaddr,
+                    addrs_len.try_into().unwrap(),
+                );
                 eprintln!(
                     "fd: {}, result: {},  addrs_len: {}, addrs_u8: {:?}",
                     raw_fd, result, addrs_len, addrs_buff,

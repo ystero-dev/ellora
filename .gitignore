@@ -1,3 +1,5 @@
 /target
 Cargo.lock
 **/target
+sctp-rs/sctp.c
+sctp-rs/src/internal/tests.rs
