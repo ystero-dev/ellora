@@ -16,8 +16,8 @@ use crate::{
 ///
 /// A Connected SCTP Socket is associated with one or more Peer associations (each of which is
 /// identified by an Association ID). A Connected SCTP Socket will be created by an
-/// [`Listener`][crate::Listener] when it calls an `accept` (in the case of One to One style sockets) or upon
-/// receiving a `SCTP_COMM_UP` event in `SCTP_ASSOC_CHANGE` notification.
+/// [`Listener`][crate::Listener] when it calls an `accept` (in the case of One to One style
+/// sockets) or upon receiving a `SCTP_COMM_UP` event in `SCTP_ASSOC_CHANGE` notification.
 ///
 /// It is also possible to [`peeloff`][crate::Listener::sctp_peeloff] a socket from One to Many
 /// listening socket and the peeled socket is an [`ConnectedSocket`].

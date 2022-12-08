@@ -32,7 +32,19 @@
 //! let listener = client.listen(10)?;
 //!
 //! // Accept on the socket and process data.
-//! let accepted = listener.accept().await?;
+//! let (accepted, _client_addr) = listener.accept().await?;
+//!
+//! loop {
+//!     let notification_or_data = accepted.sctp_recv().await?;
+//!     match notification_or_data {
+//!         sctp_rs::NotificationOrData::Notification(n) => {
+//!             // Process Notification
+//!         },
+//!         sctp_rs::NotificationOrData::Data(n) => {
+//!             // Process Data
+//!         }
+//!     }
+//! }
 //!
 //! # Ok(())
 //! # }

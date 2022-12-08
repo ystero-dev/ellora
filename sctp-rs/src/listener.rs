@@ -14,10 +14,10 @@ use crate::{
 
 /// A structure representing a socket that is listening for incoming SCTP Connections.
 ///
-/// This structure is created by an [`crate::Socket`] when it is bound to local address(es)
+/// This structure is created by an [`Socket`][crate::Socket] when it is bound to local address(es)
 /// and is waiting for incoming connections by calling the `listen` on the socket. The original
-/// [`crate::Socket`] is consumed when this structure is created. See
-/// [`crate::Socket::listen`] for more details.
+/// [`Socket`][crate::Socket] is consumed when this structure is created. See
+/// [`Socket::listen`][crate::Socket::listen] for more details.
 pub struct Listener {
     inner: AsyncFd<RawFd>,
 }
@@ -43,7 +43,7 @@ impl Listener {
     /// Peels off a connected SCTP association from the listening socket. See: Section 9.2 RFC 6458
     ///
     /// This call is successful only for UDP style one to many sockets. This is like
-    /// `[crate::Listener::accept`] where peeled off socket behaves like a stand alone
+    /// `[Listener::accept`] where peeled off socket behaves like a stand alone
     /// one-to-one socket.
     pub fn sctp_peeloff(&self, assoc_id: AssociationId) -> std::io::Result<ConnectedSocket> {
         sctp_peeloff_internal(&self.inner, assoc_id)
