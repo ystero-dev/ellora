@@ -612,6 +612,26 @@ pub(crate) async fn sctp_sendmsg_internal(
     }
 }
 
+pub(crate) fn sctp_set_default_sendinfo_internal(
+    fd: &AsyncFd<RawFd>,
+    sendinfo: SendInfo,
+) -> std::io::Result<()> {
+    unsafe {
+        let result = libc::setsockopt(
+            *fd.get_ref(),
+            SOL_SCTP,
+            SCTP_DEFAULT_SNDINFO,
+            &sendinfo as *const _ as *const libc::c_void,
+            std::mem::size_of::<SendInfo>().try_into().unwrap(),
+        );
+        if result < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+}
+
 fn notification_from_message(data: &[u8]) -> Notification {
     let notification_type = u16::from_ne_bytes(data[0..2].try_into().unwrap());
     log::trace!(

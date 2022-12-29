@@ -33,6 +33,7 @@ pub(crate) const SCTP_INITMSG: libc::c_int = 2;
 // Receving RCVINFO and NXTINFO
 pub(crate) const SCTP_RECVRCVINFO: libc::c_int = 32;
 pub(crate) const SCTP_RECVNXTINFO: libc::c_int = 33;
+pub(crate) const SCTP_DEFAULT_SNDINFO: libc::c_int = 34;
 
 // Get SCTP Status
 pub(crate) const SCTP_STATUS: libc::c_int = 14;

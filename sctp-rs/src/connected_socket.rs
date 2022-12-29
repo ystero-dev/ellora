@@ -8,7 +8,7 @@ use std::os::unix::io::RawFd;
 #[allow(unused)]
 use crate::internal::*;
 use crate::{
-    AssociationId, BindxFlags, ConnStatus, Event, NotificationOrData, SendData,
+    AssociationId, BindxFlags, ConnStatus, Event, NotificationOrData, SendData, SendInfo,
     SubscribeEventAssocId,
 };
 
@@ -127,6 +127,16 @@ impl ConnectedSocket {
     /// Get the status of the connection associated with the association ID.
     pub fn sctp_get_status(&self, assoc_id: AssociationId) -> std::io::Result<ConnStatus> {
         sctp_get_status_internal(&self.inner, assoc_id)
+    }
+
+    /// Set Default `SendInfo` values for this socket.
+    ///
+    /// In the [`sctp_send`] API, an optional `SendInfo` is present, which can be used to specify the
+    /// ancillary data along with the payload. Instead, a sender can chose to use this API to set
+    /// the default `SendInfo` to be used while sending the data for this 'connected' socket.
+    /// Note: This API is provided only for the [`ConnectedSocket`].
+    pub fn sctp_set_default_sendinfo(&self, sendinfo: SendInfo) -> std::io::Result<()> {
+        sctp_set_default_sendinfo_internal(&self.inner, sendinfo)
     }
 }
 

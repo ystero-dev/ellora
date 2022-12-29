@@ -1,6 +1,6 @@
 [package]
 name = "sctp-rs"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2018"
 description = "Idiomatic Rust APIs for Linux SCTP Stack."
 authors = [ "Abhijit Gadgil <gabhijit@iitbombay.org>"]

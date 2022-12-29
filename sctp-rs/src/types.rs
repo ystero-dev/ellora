@@ -62,6 +62,7 @@ pub struct SendData {
 }
 
 /// Structure representing Ancilliary Send Information (See Section 5.3.4 of RFC 6458)
+#[repr(C)]
 #[derive(Debug, Default, Clone)]
 pub struct SendInfo {
     /// Stream ID of the stream to send the data on.
