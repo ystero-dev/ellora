@@ -35,7 +35,7 @@ This section captures the current support for `SCTP` features with [RFC 6458](ht
 | 5.3.1 | yes | |
 | 5.3.2 | N/A | |
 | 5.3.3 | N/A | |
-| 5.3.4 | no | |
+| 5.3.4 | yes | |
 | 5.3.5 | yes | |
 | 5.3.6 | yes | See Note 2. |
 | 5.3.7 | no | |
@@ -85,7 +85,7 @@ This section captures the current support for `SCTP` features with [RFC 6458](ht
 | 8.1.28 | no | |
 | 8.1.29 | no | |
 | 8.1.30 | no | |
-| 8.1.31 | no | |
+| 8.1.31 | yes | |
 | 8.1.32 | no | |
 | 8.2.1 | yes | |
 | 8.2.2 | no | |

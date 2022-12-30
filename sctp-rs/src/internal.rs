@@ -369,14 +369,16 @@ pub(crate) async fn accept_internal(
             let mut addrs_buff: Vec<u8> = vec![0; 32];
             let mut addrs_len = addrs_buff.len();
 
-            let addrs_len_ptr = std::ptr::addr_of_mut!(addrs_len);
-            let addrs_buff_ptr = addrs_buff.as_mut_ptr();
+            let result = {
+                let addrs_len_ptr = std::ptr::addr_of_mut!(addrs_len);
+                let addrs_buff_ptr = addrs_buff.as_mut_ptr();
 
-            let result = libc::accept(
-                raw_fd,
-                addrs_buff_ptr as *mut _ as *mut libc::sockaddr,
-                addrs_len_ptr as *mut _ as *mut libc::socklen_t,
-            );
+                libc::accept(
+                    raw_fd,
+                    addrs_buff_ptr as *mut _ as *mut libc::sockaddr,
+                    addrs_len_ptr as *mut _ as *mut libc::socklen_t,
+                )
+            };
 
             if result < 0 {
                 let last_error = std::io::Error::last_os_error();
@@ -458,25 +460,25 @@ pub(crate) async fn sctp_recvmsg_internal(
             std::mem::size_of::<RcvInfo>() as u32 + std::mem::size_of::<NxtInfo>() as u32,
         )
     };
-    let mut msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
-
-    let mut from_buffer = vec![0u8; 256];
-    let mut recvmsg_header = libc::msghdr {
-        msg_name: from_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
-        msg_namelen: from_buffer.len() as u32,
-        msg_iov: &mut recv_iov,
-        msg_iovlen: 1,
-        msg_control: msg_control.as_mut_ptr() as *mut _ as *mut libc::c_void,
-        msg_controllen: msg_control_size as usize,
-        msg_flags: 0,
-    };
-
+    //
     // Safety: recvmsg_hdr is valid in the current scope.
     unsafe {
         let rawfd = *fd.get_ref();
 
         loop {
             let mut guard = fd.readable().await?;
+
+            let mut msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
+            let mut from_buffer = vec![0u8; 256];
+            let mut recvmsg_header = libc::msghdr {
+                msg_name: from_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
+                msg_namelen: from_buffer.len() as u32,
+                msg_iov: &mut recv_iov,
+                msg_iovlen: 1,
+                msg_control: msg_control.as_mut_ptr() as *mut _ as *mut libc::c_void,
+                msg_controllen: msg_control_size as usize,
+                msg_flags: 0,
+            };
 
             let flags = 0 as libc::c_int;
             let result = libc::recvmsg(rawfd, &mut recvmsg_header as *mut libc::msghdr, flags);
