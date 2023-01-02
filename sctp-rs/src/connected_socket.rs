@@ -66,12 +66,11 @@ impl ConnectedSocket {
         sctp_getladdrs_internal(&self.inner, assoc_id)
     }
 
-    /// Receive Data or Notification from the listening socket.
+    /// Receive Data or Notification from the connected socket.
     ///
-    /// In the case of One-to-many sockets, it is possible to receive on the listening socket,
-    /// without explicitly 'accept'ing or 'peeling off' the socket. The internal API used to
-    /// receive the data is also the API used to receive notifications. This function returns
-    /// either the notification (which the user should have subscribed for) or the data.
+    /// The internal API used to receive the data is also the API used to receive notifications.
+    /// This function returns either the notification (which the user should have subscribed for)
+    /// or the data.
     pub async fn sctp_recv(&self) -> std::io::Result<NotificationOrData> {
         sctp_recvmsg_internal(&self.inner).await
     }

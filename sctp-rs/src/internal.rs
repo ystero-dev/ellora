@@ -391,7 +391,7 @@ pub(crate) async fn accept_internal(
                 }
 
                 // We got an `EWOULDBLOCK` let's wait.
-                let _guard = fd.readable().await?;
+                fd.readable().await?.clear_ready();
             } else {
                 let os_socketaddr = OsSocketAddr::copy_from_raw(
                     addrs_buff.as_ptr() as *const _ as *const libc::sockaddr,
@@ -448,28 +448,29 @@ pub(crate) async fn sctp_recvmsg_internal(
 ) -> std::io::Result<NotificationOrData> {
     log::debug!("Receiving Message on the socket.");
 
-    let mut recv_buffer = vec![0_u8; 4096];
-    let mut recv_iov = libc::iovec {
-        iov_base: recv_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
-        iov_len: recv_buffer.len(),
-    };
-
-    // Safety: wrapper over `libc` call. the size of the structures are wellknown.
-    let msg_control_size = unsafe {
-        libc::CMSG_SPACE(
-            std::mem::size_of::<RcvInfo>() as u32 + std::mem::size_of::<NxtInfo>() as u32,
-        )
-    };
     //
     // Safety: recvmsg_hdr is valid in the current scope.
     unsafe {
         let rawfd = *fd.get_ref();
 
+        let mut recv_buffer = vec![0_u8; 4096];
+        let msg_control_size = libc::CMSG_SPACE(
+            std::mem::size_of::<RcvInfo>() as u32 + std::mem::size_of::<NxtInfo>() as u32,
+        );
+        let mut msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
+        let mut from_buffer = vec![0u8; 256];
+
         loop {
             let mut guard = fd.readable().await?;
 
-            let mut msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
-            let mut from_buffer = vec![0u8; 256];
+            recv_buffer.fill(0_u8);
+            let mut recv_iov = libc::iovec {
+                iov_base: recv_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
+                iov_len: recv_buffer.len(),
+            };
+
+            msg_control.fill(0);
+            from_buffer.fill(0);
             let mut recvmsg_header = libc::msghdr {
                 msg_name: from_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
                 msg_namelen: from_buffer.len() as u32,
