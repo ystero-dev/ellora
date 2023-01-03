@@ -13,9 +13,9 @@ use os_socketaddr::OsSocketAddr;
 
 use crate::types::internal::{ConnectxParam, GetAddrs, InitMsg, SubscribeEvent};
 use crate::{
-    AssociationChange, AssociationId, BindxFlags, CmsgType, ConnStatus, ConnectedSocket, Event,
-    Listener, Notification, NotificationOrData, NxtInfo, RcvInfo, ReceivedData, SendData, SendInfo,
-    SubscribeEventAssocId,
+    AssocChangeState, AssociationChange, AssociationId, BindxFlags, CmsgType, ConnStatus,
+    ConnectedSocket, Event, Listener, Notification, NotificationOrData, NxtInfo, RcvInfo,
+    ReceivedData, SendData, SendInfo, Shutdown, SubscribeEventAssocId,
 };
 
 #[allow(unused)]
@@ -646,10 +646,12 @@ fn notification_from_message(data: &[u8]) -> Notification {
         SCTP_ASSOC_CHANGE => {
             log::debug!("SCTP_ASSOC_CHANGE Notification Received.");
             let assoc_change = AssociationChange {
-                type_: u16::from_ne_bytes(data[0..2].try_into().unwrap()),
+                ev_type: Event::from_u16(u16::from_ne_bytes(data[0..2].try_into().unwrap())),
                 flags: u16::from_ne_bytes(data[2..4].try_into().unwrap()),
                 length: u32::from_ne_bytes(data[4..8].try_into().unwrap()),
-                state: u16::from_ne_bytes(data[8..10].try_into().unwrap()),
+                state: AssocChangeState::from_u16(u16::from_ne_bytes(
+                    data[8..10].try_into().unwrap(),
+                )),
                 error: u16::from_ne_bytes(data[10..12].try_into().unwrap()),
                 ob_streams: u16::from_ne_bytes(data[12..14].try_into().unwrap()),
                 ib_streams: u16::from_ne_bytes(data[14..16].try_into().unwrap()),
@@ -657,6 +659,16 @@ fn notification_from_message(data: &[u8]) -> Notification {
                 info: data[20..].into(),
             };
             Notification::AssociationChange(assoc_change)
+        }
+        SCTP_SHUTDOWN => {
+            log::debug!("SCTP_SHUTDOWN Notification Received.");
+            let shutdown = Shutdown {
+                ev_type: Event::from_u16(u16::from_ne_bytes(data[0..2].try_into().unwrap())),
+                flags: u16::from_ne_bytes(data[2..4].try_into().unwrap()),
+                length: u32::from_ne_bytes(data[4..8].try_into().unwrap()),
+                assoc_id: i32::from_ne_bytes(data[16..20].try_into().unwrap()),
+            };
+            Notification::Shutdown(shutdown)
         }
         _ => {
             log::debug!("Unsupported notification received.");

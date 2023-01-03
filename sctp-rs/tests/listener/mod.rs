@@ -107,7 +107,7 @@ async fn listening_socket_one2many_connected_peeloff_success() {
     {
         let received = listener.sctp_peeloff(assoc_id);
         assert!(received.is_ok(), "{:#?}", received.err().unwrap());
-        assert!(state == AssocChangeState::CommUp as u16, "{}", state);
+        assert!(state == AssocChangeState::CommUp, "{:#?}", state);
     } else {
         assert!(false, "Should never come here!: {:#?}", notification);
     };

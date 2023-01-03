@@ -25,7 +25,8 @@ pub(crate) static SCTP_EVENT: libc::c_int = 127;
 pub(crate) static MSG_NOTIFICATION: u32 = 0x8000;
 
 // Notification Types Constants
-pub(crate) const SCTP_ASSOC_CHANGE: u16 = (1 << 15) | 0x0001;
+pub(crate) const SCTP_ASSOC_CHANGE: u16 = (1 << 15) + 0x0001;
+pub(crate) const SCTP_SHUTDOWN: u16 = (1 << 15) + 0x0005;
 
 // Init Message used for `setsockopt`
 pub(crate) const SCTP_INITMSG: libc::c_int = 2;
