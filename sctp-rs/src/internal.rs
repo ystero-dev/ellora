@@ -316,9 +316,9 @@ pub(crate) async fn sctp_connectx_internal(
             }
         }
 
-        log::debug!("Waiting to connect...");
+        log::trace!("Waiting to connect...");
         let _guard = fd.writable().await?;
-        log::debug!("Connected...");
+        log::trace!("Connected...");
 
         let sctp_status = sctp_get_status_internal(&fd, params.assoc_id);
         if let Err(e) = sctp_status {
@@ -666,7 +666,7 @@ fn notification_from_message(data: &[u8]) -> Notification {
                 ev_type: Event::from_u16(u16::from_ne_bytes(data[0..2].try_into().unwrap())),
                 flags: u16::from_ne_bytes(data[2..4].try_into().unwrap()),
                 length: u32::from_ne_bytes(data[4..8].try_into().unwrap()),
-                assoc_id: i32::from_ne_bytes(data[16..20].try_into().unwrap()),
+                assoc_id: i32::from_ne_bytes(data[8..12].try_into().unwrap()),
             };
             Notification::Shutdown(shutdown)
         }

@@ -90,3 +90,49 @@ async fn connected_default_sendinfo_success() {
         assert!(false, "Should never come here!: {:#?}", data);
     };
 }
+
+#[tokio::test]
+async fn test_shutdown_event() {
+    let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
+
+    let client_socket = create_client_socket(SocketToAssociation::OneToOne, true);
+    let result = client_socket.sctp_request_rcvinfo(true);
+    assert!(result.is_ok(), "{:?}", result.err().unwrap());
+
+    let result = client_socket.sctp_connectx(&[bindaddr]).await;
+    assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+    let (connected, client_assoc_id) = result.unwrap();
+    let result = connected.sctp_subscribe_event(Event::Shutdown, SubscribeEventAssocId::All);
+    assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+
+    let accept = listener.accept().await;
+    assert!(accept.is_ok(), "{:#?}", accept.err().unwrap());
+    let (accepted, _) = accept.unwrap();
+
+    // drop the connected socket, so that should generate shutdown event.
+    drop(accepted);
+
+    let result = connected.sctp_recv().await;
+    assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+    let data = result.unwrap();
+    assert!(
+        matches!(
+            data,
+            NotificationOrData::Notification(Notification::Shutdown(Shutdown { .. }))
+        ),
+        "{:#?}",
+        data
+    );
+
+    if let NotificationOrData::Notification(Notification::Shutdown(Shutdown { assoc_id, .. })) =
+        data
+    {
+        assert_eq!(
+            client_assoc_id, assoc_id,
+            "client_assoc_id: {}, Event assoc_id: {}",
+            client_assoc_id, assoc_id
+        );
+    } else {
+        assert!(false, "Should never come here!: {:#?}", data);
+    }
+}
