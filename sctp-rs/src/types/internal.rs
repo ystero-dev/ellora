@@ -64,3 +64,94 @@ pub(crate) struct ConnectxParam {
     pub(crate) addrs_size: libc::c_int,
     pub(crate) addrs: *mut u8,
 }
+
+// PeerAddress: Structure representing SCTP Peer Address.
+#[repr(C, packed)]
+#[derive(Clone, Copy)]
+pub struct PeerAddrInternal {
+    pub assoc_id: AssociationId,
+    pub address: libc::sockaddr_storage,
+    pub state: i32,
+    pub cwnd: u32,
+    pub srtt: u32,
+    pub rto: u32,
+    pub mtu: u32,
+}
+
+// ConnStatusInternal: Status of an SCTP Connection
+#[repr(C)]
+#[derive(Clone)]
+pub struct ConnStatusInternal {
+    pub assoc_id: AssociationId,
+    pub state: i32,
+    pub rwnd: u32,
+    pub unacked_data: u16,
+    pub pending_data: u16,
+    pub instreams: u16,
+    pub outstreams: u16,
+    pub fragmentation_pt: u32,
+    pub peer_primary: PeerAddrInternal,
+}
+
+use std::convert::{TryFrom, TryInto};
+
+use os_socketaddr::OsSocketAddr;
+
+use crate::types::{ConnState, ConnStatus, PeerAddress};
+
+impl TryFrom<PeerAddrInternal> for PeerAddress {
+    type Error = std::io::Error;
+
+    fn try_from(val: PeerAddrInternal) -> Result<Self, Self::Error> {
+        let sa_family = val.address.ss_family;
+        // Safety: address is valid and hence getting reference to it is valid.
+        let address = unsafe {
+            if sa_family as i32 == libc::AF_INET {
+                let address = val.address;
+                let os_socketaddr = OsSocketAddr::copy_from_raw(
+                    &address as *const _ as *const libc::sockaddr,
+                    std::mem::size_of::<libc::sockaddr_in>().try_into().unwrap(),
+                );
+                os_socketaddr.into_addr().unwrap()
+            } else if sa_family as i32 == libc::AF_INET6 {
+                let address = val.address;
+                let os_socketaddr = OsSocketAddr::copy_from_raw(
+                    &address as *const _ as *const libc::sockaddr,
+                    std::mem::size_of::<libc::sockaddr_in6>()
+                        .try_into()
+                        .unwrap(),
+                );
+                os_socketaddr.into_addr().unwrap()
+            } else {
+                return Err(std::io::Error::from_raw_os_error(22));
+            }
+        };
+        Ok(Self {
+            assoc_id: val.assoc_id,
+            address,
+            state: val.state,
+            cwnd: val.cwnd,
+            srtt: val.srtt,
+            rto: val.rto,
+            mtu: val.mtu,
+        })
+    }
+}
+
+impl TryFrom<ConnStatusInternal> for ConnStatus {
+    type Error = std::convert::Infallible;
+
+    fn try_from(val: ConnStatusInternal) -> Result<Self, Self::Error> {
+        Ok(Self {
+            assoc_id: val.assoc_id,
+            state: ConnState::from_i32(val.state),
+            rwnd: val.rwnd,
+            unacked_data: val.unacked_data,
+            pending_data: val.pending_data,
+            instreams: val.instreams,
+            outstreams: val.outstreams,
+            fragmentation_pt: val.fragmentation_pt,
+            peer_primary: val.peer_primary.try_into().unwrap(),
+        })
+    }
+}

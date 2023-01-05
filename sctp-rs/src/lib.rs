@@ -37,10 +37,10 @@
 //! loop {
 //!     let notification_or_data = accepted.sctp_recv().await?;
 //!     match notification_or_data {
-//!         sctp_rs::NotificationOrData::Notification(n) => {
+//!         sctp_rs::NotificationOrData::Notification(notification) => {
 //!             // Process Notification
 //!         },
-//!         sctp_rs::NotificationOrData::Data(n) => {
+//!         sctp_rs::NotificationOrData::Data(data) => {
 //!             // Process Data
 //!         }
 //!     }
@@ -48,6 +48,7 @@
 //!
 //! # Ok(())
 //! # }
+//! ```
 
 mod connected_socket;
 mod listener;

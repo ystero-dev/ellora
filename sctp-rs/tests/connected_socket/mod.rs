@@ -136,3 +136,38 @@ async fn test_shutdown_event() {
         assert!(false, "Should never come here!: {:#?}", data);
     }
 }
+
+#[tokio::test]
+async fn test_get_status() {
+    let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
+
+    let client_socket = create_client_socket(SocketToAssociation::OneToOne, true);
+    let result = client_socket.sctp_request_rcvinfo(true);
+    assert!(result.is_ok(), "{:?}", result.err().unwrap());
+
+    let result = client_socket.sctp_connectx(&[bindaddr]).await;
+    assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+    let (connected, client_assoc_id) = result.unwrap();
+
+    let accept = listener.accept().await;
+    assert!(accept.is_ok(), "{:#?}", accept.err().unwrap());
+    let (accepted, client_addr) = accept.unwrap();
+
+    let result = connected.sctp_get_status(0);
+    assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+    let status = result.unwrap();
+    assert_eq!(
+        status.assoc_id, client_assoc_id,
+        "client assoc ID: {}, status assoc ID: {}",
+        client_assoc_id, status.assoc_id
+    );
+
+    let result = accepted.sctp_get_status(0);
+    assert!(result.is_ok(), "{:#?}", result.err().unwrap());
+    let status = result.unwrap();
+    assert_eq!(
+        client_addr, status.peer_primary.address,
+        "Client Addres: {}, Peer Primary Address: {}",
+        client_addr, status.peer_primary.address
+    );
+}

@@ -13,7 +13,7 @@ use crate::{
 #[allow(unused)]
 use super::internal::*;
 
-/// A structure representing and unconnected SCTP Socket.
+/// A structure representing an unconnected SCTP Socket.
 ///
 /// When we `listen` on this socket, we get an [`Listener`] on which we can `accept` to
 /// get a [`ConnectedSocket`] (This is like `TCPStream` but since this can have multiple

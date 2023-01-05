@@ -11,7 +11,9 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 use os_socketaddr::OsSocketAddr;
 
-use crate::types::internal::{ConnectxParam, GetAddrs, InitMsg, SubscribeEvent};
+use crate::types::internal::{
+    ConnStatusInternal, ConnectxParam, GetAddrs, InitMsg, SubscribeEvent,
+};
 use crate::{
     AssocChangeState, AssociationChange, AssociationId, BindxFlags, CmsgType, ConnStatus,
     ConnectedSocket, Event, Listener, Notification, NotificationOrData, NxtInfo, RcvInfo,
@@ -793,8 +795,8 @@ pub(crate) fn sctp_get_status_internal(
 ) -> std::io::Result<ConnStatus> {
     log::debug!("Calling `sctp_get_status_internal`.");
 
-    let status_ptr = std::mem::MaybeUninit::<ConnStatus>::zeroed();
-    let mut status_size = std::mem::size_of::<ConnStatus>();
+    let status_ptr = std::mem::MaybeUninit::<ConnStatusInternal>::zeroed();
+    let mut status_size = std::mem::size_of::<ConnStatusInternal>();
 
     unsafe {
         let mut sctp_status = status_ptr.assume_init();
@@ -811,7 +813,7 @@ pub(crate) fn sctp_get_status_internal(
         if result < 0 {
             Err(std::io::Error::last_os_error())
         } else {
-            Ok(sctp_status)
+            Ok(sctp_status.try_into().unwrap())
         }
     }
 }
