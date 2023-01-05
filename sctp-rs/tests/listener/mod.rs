@@ -60,7 +60,8 @@ async fn listening_socket_no_connect_peeloff_failure() {
 async fn listening_socket_one2one_connected_peeloff_failure() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToOne, true);
 
-    let result = listener.sctp_subscribe_event(Event::Association, SubscribeEventAssocId::Future);
+    let result =
+        listener.sctp_subscribe_events(&[Event::Association], SubscribeEventAssocId::Future);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     let client_socket = create_client_socket(SocketToAssociation::OneToOne, true);
@@ -76,7 +77,8 @@ async fn listening_socket_one2one_connected_peeloff_failure() {
 async fn listening_socket_one2many_connected_peeloff_success() {
     let (listener, bindaddr) = create_socket_bind_and_listen(SocketToAssociation::OneToMany, true);
 
-    let result = listener.sctp_subscribe_event(Event::Association, SubscribeEventAssocId::Future);
+    let result =
+        listener.sctp_subscribe_events(&[Event::Association], SubscribeEventAssocId::Future);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     let client_socket = create_client_socket(SocketToAssociation::OneToMany, true);

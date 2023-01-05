@@ -102,7 +102,7 @@ async fn test_shutdown_event() {
     let result = client_socket.sctp_connectx(&[bindaddr]).await;
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
     let (connected, client_assoc_id) = result.unwrap();
-    let result = connected.sctp_subscribe_event(Event::Shutdown, SubscribeEventAssocId::All);
+    let result = connected.sctp_subscribe_events(&[Event::Shutdown], SubscribeEventAssocId::All);
     assert!(result.is_ok(), "{:#?}", result.err().unwrap());
 
     let accept = listener.accept().await;

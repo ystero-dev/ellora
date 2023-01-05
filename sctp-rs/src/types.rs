@@ -276,7 +276,7 @@ impl Event {
 ///
 /// Note: repr should be same as `AssociationId` (ie. `i32`)
 #[repr(i32)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SubscribeEventAssocId {
     /// Subscribe to Future Association IDs
     Future,

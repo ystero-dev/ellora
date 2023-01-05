@@ -86,6 +86,7 @@ impl Listener {
     /// SCTP allows receiving notifications about the changes to SCTP associations etc from the
     /// user space. For these notification events to be received, this API is used to subsribe for
     /// the events while receiving the data on the SCTP Socket.
+    #[deprecated(since = "0.2.2", note = "use sctp_subscribe_events instead.")]
     pub fn sctp_subscribe_event(
         &self,
         event: Event,
@@ -97,12 +98,67 @@ impl Listener {
     /// Unsubscribe from a given SCTP Event on the given socket. See section 6.2.1 of RFC6458.
     ///
     /// See [`sctp_subscribe_event`][`Self::sctp_subscribe_event`] for further details.
+    #[deprecated(since = "0.2.2", note = "use sctp_unsubscribe_events instead.")]
     pub fn sctp_unsubscribe_event(
         &self,
         event: Event,
         assoc_id: SubscribeEventAssocId,
     ) -> std::io::Result<()> {
         sctp_subscribe_event_internal(&self.inner, event, assoc_id, false)
+    }
+
+    /// Subscribe to SCTP Events. See section 6.2.1 of RFC6458.
+    ///
+    /// SCTP allows receiving notifications about the changes to SCTP associations etc from the
+    /// user space. For these notification events to be received, this API is used to subsribe for
+    /// the events while receiving the data on the SCTP Socket.
+    pub fn sctp_subscribe_events(
+        &self,
+        events: &[Event],
+        assoc_id: SubscribeEventAssocId,
+    ) -> std::io::Result<()> {
+        let mut failures = vec![];
+        for ev in events {
+            let result = sctp_subscribe_event_internal(&self.inner, ev.clone(), assoc_id, true);
+            if result.is_err() {
+                failures.push(result.err().unwrap());
+            }
+        }
+
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("{:?}", failures),
+            ))
+        }
+    }
+
+    /// Unsubscribe from a given SCTP Event on the given socket. See section 6.2.1 of RFC6458.
+    ///
+    /// See [`sctp_subscribe_events`][`Self::sctp_subscribe_events`] for further details.
+    pub fn sctp_unsubscribe_events(
+        &self,
+        events: &[Event],
+        assoc_id: SubscribeEventAssocId,
+    ) -> std::io::Result<()> {
+        let mut failures = vec![];
+        for ev in events {
+            let result = sctp_subscribe_event_internal(&self.inner, ev.clone(), assoc_id, false);
+            if result.is_err() {
+                failures.push(result.err().unwrap());
+            }
+        }
+
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("{:?}", failures),
+            ))
+        }
     }
 
     /// Setup parameters for a new association.
