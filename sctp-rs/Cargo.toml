@@ -1,6 +1,6 @@
 [package]
 name = "sctp-rs"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2018"
 description = "Idiomatic Rust APIs for Linux SCTP Stack."
 authors = [ "Abhijit Gadgil <gabhijit@iitbombay.org>"]
@@ -8,7 +8,7 @@ categories = ["network-programming"]
 keywords = ["sctp"]
 readme = "README.md"
 repository = "https://github.com/gabhijit/ellora.git"
-license-file = "LICENSE"
+license = "Apache-2.0 OR MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
