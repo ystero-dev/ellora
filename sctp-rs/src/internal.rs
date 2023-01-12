@@ -562,49 +562,51 @@ pub(crate) async fn sctp_sendmsg_internal(
     to: Option<SocketAddr>,
     data: SendData,
 ) -> std::io::Result<()> {
-    let mut send_iov = libc::iovec {
-        iov_base: data.payload.as_ptr() as *mut libc::c_void,
-        iov_len: data.payload.len(),
-    };
-
-    let (to_buffer, to_buffer_len) = if let Some(addr) = to {
-        let os_sockaddr: OsSocketAddr = addr.into();
-        (
-            os_sockaddr.as_ptr() as *mut libc::c_void,
-            os_sockaddr.capacity(),
-        )
-    } else {
-        (std::ptr::null::<OsSocketAddr>() as *mut libc::c_void, 0)
-    };
-
-    // TODO: Support copy and other send info as well.
-    let (msg_control, msg_control_size) = if data.snd_info.is_some() {
-        // Safety: wrapper over `libc` call. the size of the structures are wellknown.
-        let msg_control_size = unsafe { libc::CMSG_SPACE(std::mem::size_of::<SendInfo>() as u32) };
-        let msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
-        (
-            msg_control.as_ptr() as *mut libc::c_void,
-            msg_control_size as usize,
-        )
-    } else {
-        (
-            std::ptr::null::<libc::cmsghdr>() as *mut libc::c_void,
-            0_usize,
-        )
-    };
-
-    let mut sendmsg_header = libc::msghdr {
-        msg_name: to_buffer,
-        msg_namelen: to_buffer_len,
-        msg_iov: &mut send_iov,
-        msg_iovlen: 1,
-        msg_control,
-        msg_controllen: msg_control_size,
-        msg_flags: 0,
-    };
-    // Safety: sendmsg_hdr is valid in the current scope.
+    // Safety: All the pointers are valid because they are within the current scope.
+    // Also, this is just a wrapper over `libc` call.
     unsafe {
         let _guard = fd.writable().await?;
+
+        let mut send_iov = libc::iovec {
+            iov_base: data.payload.as_ptr() as *mut libc::c_void,
+            iov_len: data.payload.len(),
+        };
+
+        let (to_buffer, to_buffer_len) = if let Some(addr) = to {
+            let os_sockaddr: OsSocketAddr = addr.into();
+            (
+                os_sockaddr.as_ptr() as *mut libc::c_void,
+                os_sockaddr.capacity(),
+            )
+        } else {
+            (std::ptr::null::<OsSocketAddr>() as *mut libc::c_void, 0)
+        };
+
+        // TODO: Support copy and other send info as well.
+        let (msg_control, msg_control_size) = if data.snd_info.is_some() {
+            // Safety: wrapper over `libc` call. the size of the structures are wellknown.
+            let msg_control_size = libc::CMSG_SPACE(std::mem::size_of::<SendInfo>() as u32);
+            let msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
+            (
+                msg_control.as_ptr() as *mut libc::c_void,
+                msg_control_size as usize,
+            )
+        } else {
+            (
+                std::ptr::null::<libc::cmsghdr>() as *mut libc::c_void,
+                0_usize,
+            )
+        };
+
+        let mut sendmsg_header = libc::msghdr {
+            msg_name: to_buffer,
+            msg_namelen: to_buffer_len,
+            msg_iov: &mut send_iov,
+            msg_iovlen: 1,
+            msg_control,
+            msg_controllen: msg_control_size,
+            msg_flags: 0,
+        };
         let rawfd = *fd.get_ref();
 
         let flags = 0 as libc::c_int;
