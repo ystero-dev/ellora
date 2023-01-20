@@ -116,3 +116,10 @@ Notes:
 1. The `drop` implementation on the socket 'close'es the socket, hence no explicit `close` call supported.
 2. All the Send and Receive functions are available as two APIs `sctp_send` and `sctp_recv`, hence no separate implementation for the C like system calls.
 3. This API is not required to be implemented in Rust.
+
+# License
+
+Licensed under either of
+
+* Apache License, Version 2.0 ([LICENSE-Apache](https://github.com/gabhijit/ellora/blob/main/LICENSE-Apache2) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
+* MIT License ([LICENSE-MIT](https://github.com/gabhijit/ellora/blob/main/LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))

@@ -8,3 +8,10 @@ Currently following crate is implemented -
 # Motivation
 
 Why this project exists? There are a few crates that support `SCTP` but are either not maintained or do not support Rust's `async` or do not have a well documented APIs (just as wrappers over C library). One major exception being the SCTP support in [webrtc-rs](https://github.com/webrtc-rs/webrtc/tree/master/sctp). However this particular implementation is in active development and using it outside the project is a challenging task (as of now). Further, the support in Linux SCTP stack is matured and for other non WebRTC use cases of `SCTP`, mainly in signaling protocols in the telecom world (3GPP protocols like `S1AP`, `NGAP` use `SCTP` as a transport.), a suitable implementation is useful if not required.
+
+# License
+
+Licensed under either of
+
+* Apache License, Version 2.0 ([LICENSE-Apache](https://github.com/gabhijit/ellora/blob/main/LICENSE-Apache2) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
+* MIT License ([LICENSE-MIT](https://github.com/gabhijit/ellora/blob/main/LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
