@@ -565,7 +565,7 @@ pub(crate) async fn sctp_sendmsg_internal(
     // Safety: All the pointers are valid because they are within the current scope.
     // Also, this is just a wrapper over `libc` call.
     unsafe {
-        let _guard = fd.writable().await?;
+        let _ = fd.writable().await?;
 
         let mut send_iov = libc::iovec {
             iov_base: data.payload.as_ptr() as *mut libc::c_void,
@@ -581,14 +581,15 @@ pub(crate) async fn sctp_sendmsg_internal(
         } else {
             (std::ptr::null::<OsSocketAddr>() as *mut libc::c_void, 0)
         };
-
         // TODO: Support copy and other send info as well.
+        let msg_control_size = libc::CMSG_SPACE(std::mem::size_of::<SendInfo>() as u32);
+        let mut msg_control_buffer = vec![0u8; msg_control_size.try_into().unwrap()];
+
         let (msg_control, msg_control_size) = if data.snd_info.is_some() {
             // Safety: wrapper over `libc` call. the size of the structures are wellknown.
-            let msg_control_size = libc::CMSG_SPACE(std::mem::size_of::<SendInfo>() as u32);
-            let msg_control = vec![0u8; msg_control_size.try_into().unwrap()];
+
             (
-                msg_control.as_ptr() as *mut libc::c_void,
+                msg_control_buffer.as_mut_ptr() as *mut libc::c_void,
                 msg_control_size as usize,
             )
         } else {
@@ -607,9 +608,29 @@ pub(crate) async fn sctp_sendmsg_internal(
             msg_controllen: msg_control_size,
             msg_flags: 0,
         };
+
+        let cmsg_hdr = libc::CMSG_FIRSTHDR(&sendmsg_header);
+        if !cmsg_hdr.is_null() {
+            eprintln!("XXX");
+            (*cmsg_hdr).cmsg_level = libc::IPPROTO_SCTP;
+            (*cmsg_hdr).cmsg_type = CmsgType::SndInfo as i32;
+            (*cmsg_hdr).cmsg_len =
+                libc::CMSG_LEN(std::mem::size_of::<SendInfo>().try_into().unwrap())
+                    .try_into()
+                    .unwrap();
+
+            let snd_info = data.snd_info.unwrap();
+            std::ptr::copy(
+                std::ptr::addr_of!(snd_info) as *const _,
+                libc::CMSG_DATA(cmsg_hdr) as *mut _ as *mut u8,
+                std::mem::size_of::<SendInfo>().try_into().unwrap(),
+            );
+        }
+
         let rawfd = *fd.get_ref();
 
         let flags = 0 as libc::c_int;
+
         let result = libc::sendmsg(rawfd, &mut sendmsg_header as *mut libc::msghdr, flags);
         if result < 0 {
             Err(std::io::Error::last_os_error())
