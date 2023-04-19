@@ -314,6 +314,9 @@ pub(crate) async fn sctp_connectx_internal(
                     "Error: '{}' while connecting using `getsockopt`.",
                     std::io::Error::last_os_error()
                 );
+                // if we get here, `fd` won't be consumed by a `ConnectedSocket` and thus
+                // won't be closed on drop. Need to manually close here to avoid leaving
+                // sockets behind if the application does not exit.
                 close_internal(&fd);
                 return Err(last_error);
             }
@@ -331,6 +334,9 @@ pub(crate) async fn sctp_connectx_internal(
                 log::error!("Received `EINVAL`, while getting status, returning `ECONNREFUSED`.");
                 std::io::Error::from_raw_os_error(libc::ECONNREFUSED)
             };
+            // if we get here, `fd` won't be consumed by a `ConnectedSocket` and thus
+            // won't be closed on drop. Need to manually close here to avoid leaving
+            // sockets behind if the application does not exit.
             close_internal(&fd);
             return Err(err);
         }
