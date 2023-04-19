@@ -314,6 +314,7 @@ pub(crate) async fn sctp_connectx_internal(
                     "Error: '{}' while connecting using `getsockopt`.",
                     std::io::Error::last_os_error()
                 );
+                close_internal(&fd);
                 return Err(last_error);
             }
         }
@@ -330,6 +331,7 @@ pub(crate) async fn sctp_connectx_internal(
                 log::error!("Received `EINVAL`, while getting status, returning `ECONNREFUSED`.");
                 std::io::Error::from_raw_os_error(libc::ECONNREFUSED)
             };
+            close_internal(&fd);
             return Err(err);
         }
 
