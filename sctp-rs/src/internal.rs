@@ -625,7 +625,7 @@ pub(crate) async fn sctp_sendmsg_internal(
             std::ptr::copy(
                 std::ptr::addr_of!(snd_info) as *const _,
                 libc::CMSG_DATA(cmsg_hdr) as *mut _ as *mut u8,
-                std::mem::size_of::<SendInfo>().try_into().unwrap(),
+                std::mem::size_of::<SendInfo>(),
             );
         }
 
