@@ -481,13 +481,19 @@ pub(crate) async fn sctp_recvmsg_internal(
 
             msg_control.fill(0);
             from_buffer.fill(0);
+            #[cfg(target_os = "macos")]
+            let msg_controllen = msg_control_size as u32;
+
+            #[cfg(not(target_os = "macos"))]
+            let msg_controllen = msg_control_size as usize;
+
             let mut recvmsg_header = libc::msghdr {
                 msg_name: from_buffer.as_mut_ptr() as *mut _ as *mut libc::c_void,
                 msg_namelen: from_buffer.len() as u32,
                 msg_iov: &mut recv_iov,
                 msg_iovlen: 1,
                 msg_control: msg_control.as_mut_ptr() as *mut _ as *mut libc::c_void,
-                msg_controllen: msg_control_size as usize,
+                msg_controllen: msg_controllen,
                 msg_flags: 0,
             };
 
@@ -606,6 +612,11 @@ pub(crate) async fn sctp_sendmsg_internal(
                 0_usize,
             )
         };
+        #[cfg(target_os = "macos")]
+        let msg_controllen = msg_control_size as u32;
+
+        #[cfg(not(target_os = "macos"))]
+        let msg_controllen = msg_control_size as usize;
 
         let mut sendmsg_header = libc::msghdr {
             msg_name: to_buffer,
@@ -613,7 +624,7 @@ pub(crate) async fn sctp_sendmsg_internal(
             msg_iov: &mut send_iov,
             msg_iovlen: 1,
             msg_control,
-            msg_controllen: msg_control_size,
+            msg_controllen,
             msg_flags: 0,
         };
 
