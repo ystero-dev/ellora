@@ -205,7 +205,7 @@ fn sctp_getaddrs_internal(
     // for most of the calls to get local or peer addresses. Even if it is not sufficient, the call
     // to `getsockopt` would return an error, thus the memory won't be overwritten.
     unsafe {
-        let mut getaddrs_ptr = addrs_buff.as_mut_ptr() as *mut GetAddrs;
+        let getaddrs_ptr = addrs_buff.as_mut_ptr() as *mut GetAddrs;
         (*getaddrs_ptr).assoc_id = assoc_id;
         let getaddrs_size_ptr = std::ptr::addr_of_mut!(getaddrs_size);
         let result = libc::getsockopt(
@@ -630,7 +630,6 @@ pub(crate) async fn sctp_sendmsg_internal(
 
         let cmsg_hdr = libc::CMSG_FIRSTHDR(&sendmsg_header);
         if !cmsg_hdr.is_null() {
-            eprintln!("XXX");
             (*cmsg_hdr).cmsg_level = libc::IPPROTO_SCTP;
             (*cmsg_hdr).cmsg_type = CmsgType::SndInfo as i32;
             (*cmsg_hdr).cmsg_len =

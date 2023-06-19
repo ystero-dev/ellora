@@ -1,0 +1,28 @@
+name: "RustBuildTest"
+description: 'Using Rustup build for the passed channel. Sets up the channel on the given runner.'
+inputs:
+  target:
+    descritption: 'Rust target to use - one of `x86_64-apple-darwin` or `x86_64-unknown-linux-gnu`'
+    default: 'x86_64-unknown-linux-gnu'
+  channel:
+    description: 'Channel to use for this particular action, nightly, stable or beta'
+    default: 'nightly'
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup-init.sh
+        sh rustup-init.sh -y --default-toolchain none
+        rustup target add ${{ inputs.target }}
+        rustup default ${{ inputs.channel }}
+      shell: bash
+    - run: |
+        rustc -Vv
+        cargo -V
+        cargo build --verbose
+      shell: bash
+    - run: |
+        rustc -Vv
+        cargo -V
+        if [[ ${{ inputs.target }} == 'x86_64-unknown-linux-gnu' ]]; then cargo test --verbose; fi
+      shell: bash
