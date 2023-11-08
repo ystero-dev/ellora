@@ -2,25 +2,23 @@
 //! Sends a Ping to the server
 //!
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> std::io::Result<()> {
     eprintln!("ping");
 
-    let app = App::new("sctp-rs ping example")
+    let app = Command::new("sctp-rs ping example")
         .author("Abhijit Gadgil <gabhijit@iitbombay.org>")
-        .arg(
-            Arg::with_name("server")
-                .takes_value(true)
-                .required(true)
-                .long("server"),
-        );
+        .arg(Arg::new("server").num_args(1).required(true).long("server"));
 
     let matches = app.get_matches();
 
-    eprintln!("matches.server: {}", matches.value_of("server").unwrap());
-    let server_address = matches.value_of("server").unwrap();
+    eprintln!(
+        "matches.server: {}",
+        matches.get_one::<String>("server").unwrap()
+    );
+    let server_address = matches.get_one::<String>("server").unwrap();
     let server_address: std::net::SocketAddr = server_address.parse().unwrap();
 
     let client_socket = sctp_rs::Socket::new_v4(sctp_rs::SocketToAssociation::OneToOne)?;
