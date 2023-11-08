@@ -493,7 +493,7 @@ pub(crate) async fn sctp_recvmsg_internal(
                 msg_iov: &mut recv_iov,
                 msg_iovlen: 1,
                 msg_control: msg_control.as_mut_ptr() as *mut _ as *mut libc::c_void,
-                msg_controllen: msg_controllen,
+                msg_controllen,
                 msg_flags: 0,
             };
 
@@ -586,12 +586,13 @@ pub(crate) async fn sctp_sendmsg_internal(
             iov_len: data.payload.len(),
         };
 
+        // We have to create this `os_sockaddr` outside the `if let ...`
+        // Else it will go out of scope and we'll be using it's raw pointer.
+        let os_sockaddr: OsSocketAddr;
         let (to_buffer, to_buffer_len) = if let Some(addr) = to {
-            let os_sockaddr: OsSocketAddr = addr.into();
-            (
-                os_sockaddr.as_ptr() as *mut libc::c_void,
-                os_sockaddr.capacity(),
-            )
+            os_sockaddr = addr.into();
+            let slice: &[u8] = os_sockaddr.as_ref();
+            (slice.as_ptr() as *mut _, os_sockaddr.len())
         } else {
             (std::ptr::null::<OsSocketAddr>() as *mut libc::c_void, 0)
         };
@@ -616,7 +617,7 @@ pub(crate) async fn sctp_sendmsg_internal(
         let msg_controllen = msg_control_size as u32;
 
         #[cfg(not(target_os = "macos"))]
-        let msg_controllen = msg_control_size as usize;
+        let msg_controllen = msg_control_size;
 
         let mut sendmsg_header = libc::msghdr {
             msg_name: to_buffer,
@@ -640,7 +641,7 @@ pub(crate) async fn sctp_sendmsg_internal(
             let snd_info = data.snd_info.unwrap();
             std::ptr::copy(
                 std::ptr::addr_of!(snd_info) as *const _,
-                libc::CMSG_DATA(cmsg_hdr) as *mut _ as *mut u8,
+                libc::CMSG_DATA(cmsg_hdr),
                 std::mem::size_of::<SendInfo>(),
             );
         }
