@@ -2,25 +2,23 @@
 //! Sends a Pong to a Ping.
 //!
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> std::io::Result<()> {
-    eprintln!("ping");
+    eprintln!("pong");
 
-    let app = App::new("sctp-rs pong example")
+    let app = Command::new("sctp-rs pong example")
         .author("Abhijit Gadgil <gabhijit@iitbombay.org>")
-        .arg(
-            Arg::with_name("bind")
-                .takes_value(true)
-                .required(true)
-                .long("bind"),
-        );
+        .arg(Arg::new("bind").num_args(1).required(true).long("bind"));
 
     let matches = app.get_matches();
 
-    eprintln!("matches.server: {}", matches.value_of("bind").unwrap());
-    let server_address = matches.value_of("bind").unwrap();
+    eprintln!(
+        "matches.server: {}",
+        matches.get_one::<String>("bind").unwrap()
+    );
+    let server_address = matches.get_one::<String>("bind").unwrap();
     let server_address: std::net::SocketAddr = server_address.parse().unwrap();
 
     let server_socket = sctp_rs::Socket::new_v4(sctp_rs::SocketToAssociation::OneToOne)?;
